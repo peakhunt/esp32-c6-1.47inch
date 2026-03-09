@@ -32,8 +32,8 @@ static uint32_t t = 0;  // time counter
 
 static QueueHandle_t gpio_evt_queue = NULL;
 
-static
-void change_led(void)
+static void
+change_led(void)
 {
   // Use sine waves with phase offsets to generate flamboyant colors
   uint8_t r = (uint8_t)(127.5 * (1 + sin(0.1 * t)));
@@ -45,6 +45,14 @@ void change_led(void)
 
   t++;  // advance time
 }
+
+static void
+turnoff_led(void)
+{
+  led_strip_set_pixel(led_strip, 0, 0, 0, 0);
+  led_strip_refresh(led_strip);
+}
+
 
 static void
 configure_led(void)
@@ -111,7 +119,15 @@ app_main(void)
 
   while (1)
   {
-    change_led();
+    if(offset != 4)
+    {
+      change_led();
+    }
+    else
+    {
+      turnoff_led();
+    }
+
     /* Toggle the LED state */
     //vTaskDelay(CONFIG_BLINK_PERIOD / portTICK_PERIOD_MS);
     if (xQueueReceive(gpio_evt_queue, &io_num, CONFIG_BLINK_PERIOD / portTICK_PERIOD_MS))
@@ -121,8 +137,20 @@ app_main(void)
       {
         ESP_LOGI(TAG, "key pressed...");
         key_pressed = true;
-        offset = (offset + 1) % 4;
-        st7789_fill_screen_pat(0xF800, 0x07E0, 0x001F, 0x0000, offset); // red, green, blue, black
+
+        offset++;
+        offset = offset % 5;
+        if (offset == 4)
+        {
+          ESP_LOGI(TAG, "turning off display...");
+          st7789_disp_on_off(false);
+        }
+        else
+        {
+          ESP_LOGI(TAG, "setting offset to %d", offset);
+          st7789_disp_on_off(true);
+          st7789_fill_screen_pat(0xF800, 0x07E0, 0x001F, 0x0000, offset); // red, green, blue, black
+        }
       }
       else if(key_pressed == true && io_val == 1)
       {

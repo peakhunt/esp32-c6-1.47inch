@@ -34,6 +34,7 @@ static uint16_t *line_buf = NULL;
 void
 st7789_disp_on_off(bool on)
 {
+  gpio_set_level(PIN_NUM_BCKL, on ? 1 : 0);
   esp_lcd_panel_disp_on_off(_panel_handle, on);
 }
 
