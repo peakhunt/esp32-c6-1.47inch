@@ -3,8 +3,8 @@
 *Nice little micro controller*
 
 <p align="center">
-  <img src="doc/board1.jpg" alt="Board Front" width="300"/>
-  <img src="doc/board2.jpg" alt="Board Back" width="300"/>
+  <img src="doc/board1.jpg" alt="Board Front" style="max-width:45%; height:auto;"/>
+  <img src="doc/board2.jpg" alt="Board Back" style="max-width:45%; height:auto;"/>
 </p>
 
 ## Specifications
