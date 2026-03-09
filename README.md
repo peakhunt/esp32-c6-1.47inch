@@ -5,16 +5,17 @@
   <img src="doc/board2.jpg" alt="Board Back" width="300"/>
 </p>
   
-ESP32-C6  
-RISC-V 32 bit Max 160MHz  
-320KB ROM  
-512KB HP SRAM  
-16KB LP SRAM  
-4MB Flash  
-172x320 ST778 LCD  
-2.4GHz WIFI6/BLE5  
-WS2812B-0807 RGB LED  
-SD Card slot  
-Reset Button  
-IO9 User Button  
-Serial Console through USB CDC  
+ ## Specifications
+- ESP32-C6
+- RISC-V 32 bit Max 160MHz
+- 320KB ROM
+- 512KB HP SRAM
+- 16KB LP SRAM
+- 4MB Flash
+- 172x320 ST778 LCD
+- 2.4GHz WIFI6/BLE5
+- WS2812B-0807 RGB LED
+- SD Card slot
+- Reset Button
+- IO9 User Button
+- Serial Console through USB CDC
