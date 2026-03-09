@@ -1,8 +1,10 @@
 # ESP32-C6 1.47 LCD
+  
 <p align="center">
   <img src="doc/board1.jpg" alt="Board Front" width="300"/>
   <img src="doc/board2.jpg" alt="Board Back" width="300"/>
 </p>
+  
 ESP32-C6  
 RISC-V 32 bit Max 160MHz  
 320KB ROM  
