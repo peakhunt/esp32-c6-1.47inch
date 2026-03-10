@@ -195,13 +195,37 @@ my_lvgl_app_page1_init(my_lvgl_app_page_t* page)
 }
 
 static void
+my_lvgl_app_page1_anim_cb(void* var, int32_t v)
+{
+  lvgl_port_lock(0);
+
+  lv_img_set_angle((lv_obj_t *)var, v);
+
+  lvgl_port_unlock();
+}
+
+static void
 my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
 {
+  lvgl_port_lock(0);
+
+  lv_anim_t   a;
+
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, page->top);
+  lv_anim_set_exec_cb(&a, my_lvgl_app_page1_anim_cb);
+  lv_anim_set_values(&a, 0, 3600);     // 0 to 360 degrees
+  lv_anim_set_time(&a, 5000);          // 5 seconds per rotation
+  lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+  lv_anim_start(&a);
+
+  lvgl_port_unlock();
 }
 
 static void
 my_lvgl_app_page1_deactivate(my_lvgl_app_page_t* page)
 {
+  lv_anim_del(page->top, my_lvgl_app_page1_anim_cb);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -237,10 +261,12 @@ my_lvgl_app_show_page(uint8_t page)
   if(_current_page != page)
   {
     lv_obj_add_flag(app_pages[_current_page].top, LV_OBJ_FLAG_HIDDEN);
+    app_pages[_current_page].page_deactivate(&app_pages[_current_page]);
   }
 
   _current_page = page;
   lv_obj_clear_flag(app_pages[_current_page].top, LV_OBJ_FLAG_HIDDEN);
+  app_pages[_current_page].page_activate(&app_pages[_current_page]);
 
   lvgl_port_unlock();
 }
