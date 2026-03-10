@@ -13,9 +13,14 @@
 #include <time.h>
 
 LV_IMG_DECLARE(page1_ui)
+LV_IMG_DECLARE(img4)
+LV_IMG_DECLARE(img5)
+
+static uint8_t _current_page = 0;
 
 static lv_obj_t* _pages[] = 
 {
+  NULL,
   NULL,
   NULL,
 };
@@ -29,6 +34,22 @@ static lv_obj_t* page0_lbl_c3;
 static lv_obj_t* page0_lbl_c4;
 static lv_obj_t* page0_lbl_a1;
 static lv_obj_t* page0_lbl_a2;
+
+static void
+my_lvgl_app_show_page(uint8_t page)
+{
+  lvgl_port_lock(0);
+
+  if(_current_page != page)
+  {
+    lv_obj_add_flag(_pages[_current_page], LV_OBJ_FLAG_HIDDEN);
+  }
+
+  _current_page = page;
+  lv_obj_clear_flag(_pages[_current_page], LV_OBJ_FLAG_HIDDEN);
+
+  lvgl_port_unlock();
+}
 
 /* Timer callback to update Watt values */
 static void
@@ -67,7 +88,27 @@ watt_simulator_cb(lv_timer_t * timer)
 }
 
 static void
+my_lvgl_app_init_page2(void)
+{
+  lv_obj_t * bg = lv_img_create(lv_scr_act());
+  lv_img_set_src(bg, &img5);
+  lv_obj_set_pos(bg, 0, 0);
+  _pages[2] = bg;
+  lv_obj_add_flag(_pages[2], LV_OBJ_FLAG_HIDDEN);
+}
+
+static void
 my_lvgl_app_init_page1(void)
+{
+  lv_obj_t * bg = lv_img_create(lv_scr_act());
+  lv_img_set_src(bg, &img4);
+  lv_obj_set_pos(bg, 0, 0);
+  _pages[1] = bg;
+  lv_obj_add_flag(_pages[1], LV_OBJ_FLAG_HIDDEN);
+}
+
+static void
+my_lvgl_app_init_page0(void)
 {
 #define LABEL_NUM_WIDTH     58
 #define LABEL_UNIT_WIDTH    22
@@ -177,17 +218,14 @@ my_lvgl_app_init_page1(void)
   lv_obj_add_flag(_pages[0], LV_OBJ_FLAG_HIDDEN);
 }
 
-static void
-my_lvgl_app_show_page1(bool show)
+void
+my_lvgl_app_user_btn_pressed(void)
 {
-  if(show)
-  {
-    lv_obj_clear_flag(_pages[0], LV_OBJ_FLAG_HIDDEN);
-  }
-  else
-  {
-    lv_obj_add_flag(_pages[0], LV_OBJ_FLAG_HIDDEN);
-  }
+  int num_pages = sizeof(_pages)/sizeof(lv_obj_t*);
+  uint8_t page = _current_page;
+  page = (page + 1) % num_pages;
+
+  my_lvgl_app_show_page(page);
 }
 
 void
@@ -195,8 +233,11 @@ my_lvgl_app_init(void)
 {
   lvgl_port_lock(0);
 
+  my_lvgl_app_init_page0();
   my_lvgl_app_init_page1();
-  my_lvgl_app_show_page1(true);
+  my_lvgl_app_init_page2();
+
+  my_lvgl_app_show_page(0);
 
   /* Seed random generator */
   srand(time(NULL));

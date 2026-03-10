@@ -16,8 +16,7 @@ static const char* TAG = "lvgl_port_intf";
 
 static lv_disp_t * lvgl_disp        = NULL;
 
-LV_IMG_DECLARE(esp_logo)
-
+#if 0
 void
 app_rotate_screen(void)
 {
@@ -80,6 +79,7 @@ app_main_display(void)
   /* Task unlock */
   lvgl_port_unlock();
 }
+#endif
 
 esp_err_t
 lvgl_port_intf_init(void)

@@ -131,7 +131,7 @@ app_main(void)
       {
         ESP_LOGI(TAG, "key pressed...");
         key_pressed = true;
-        //app_rotate_screen();
+        my_lvgl_app_user_btn_pressed();
       }
       else if(key_pressed == true && io_val == 1)
       {
