@@ -16,6 +16,7 @@
 #include "sdkconfig.h"
 #include "st7789_lcd.h"
 #include "lvgl_port_intf.h"
+#include "my_lvgl_app.h"
 
 #define GPIO_INPUT_IO_9     9
 #define GPIO_INPUT_PIN_SEL  ((1ULL<<GPIO_INPUT_IO_9))
@@ -118,7 +119,8 @@ app_main(void)
   lvgl_port_intf_init();
 
   // st7789_fill_screen_pat(0xF800, 0x07E0, 0x001F, 0x0000, offset); // red, green, blue, black
-  app_main_display();
+  //app_main_display();
+  my_lvgl_app_init();
 
   while (1)
   {
@@ -129,7 +131,7 @@ app_main(void)
       {
         ESP_LOGI(TAG, "key pressed...");
         key_pressed = true;
-        app_rotate_screen();
+        //app_rotate_screen();
       }
       else if(key_pressed == true && io_val == 1)
       {
