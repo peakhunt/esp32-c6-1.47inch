@@ -12,11 +12,15 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "esp_chip_info.h"
+#include "esp_idf_version.h"
+#include "esp_system.h"
+#include "esp_app_desc.h"
+
 #define NUM_ELEM(x) (sizeof(x) / sizeof((x)[0]))
 
 LV_IMG_DECLARE(page0_ui)
 LV_IMG_DECLARE(glow)
-LV_IMG_DECLARE(img5)
 LV_IMG_DECLARE(thunder)
 LV_IMG_DECLARE(power)
 
@@ -49,6 +53,14 @@ struct my_lvgl_app_page
     } p1;
     struct
     {
+      lv_obj_t* arc_power;
+      lv_obj_t* arc_temp;
+      lv_obj_t* arc_cpu;
+      lv_obj_t* arc_heap;
+      lv_obj_t* lbl_power;
+      lv_obj_t* lbl_temp;
+      lv_obj_t* lbl_cpu;
+      lv_obj_t* lbl_heap;
     } p2;
   };
 };
@@ -67,6 +79,21 @@ static void my_lvgl_app_page2_deactivate(my_lvgl_app_page_t* page);
 
 static lv_style_t style_white_font_20;
 static lv_style_t style_white_font_42;
+
+const char*
+chip_model_str(esp_chip_model_t model)
+{
+  switch (model)
+  {
+    case CHIP_ESP32:    return "ESP32";
+    case CHIP_ESP32S2:  return "ESP32-S2";
+    case CHIP_ESP32S3:  return "ESP32-S3";
+    case CHIP_ESP32C3:  return "ESP32-C3";
+    case CHIP_ESP32C6:  return "ESP32-C6";
+    case CHIP_ESP32H2:  return "ESP32-H2";
+    default:            return "Unknown";
+  }
+}
 
 my_lvgl_app_page_t app_pages[] = 
 {
@@ -317,11 +344,114 @@ my_lvgl_app_page1_deactivate(my_lvgl_app_page_t* page)
 static void
 my_lvgl_app_page2_init(my_lvgl_app_page_t* page)
 {
-  lv_obj_t * bg = lv_img_create(lv_scr_act());
-  lv_img_set_src(bg, &img5);
-  lv_obj_set_pos(bg, 0, 0);
+  lv_obj_t* top = lv_obj_create(lv_scr_act());
+  lv_obj_set_size(top, LV_PCT(100), LV_PCT(100));
+  lv_obj_set_layout(top, LV_LAYOUT_GRID);
+  lv_obj_set_style_bg_opa(top, LV_OPA_TRANSP, 0);
+  lv_obj_set_scrollbar_mode(top, LV_SCROLLBAR_MODE_OFF);
+  lv_obj_set_style_border_width(top, 0, 0);
+  lv_obj_set_style_pad_all(top, 0, 0); 
+  lv_obj_set_style_pad_gap(top, 0, 0);
+  lv_obj_set_style_border_width(top, 0, 0);
+  lv_obj_center(top);
 
-  page->top = bg;
+  // Use flex layout for auto arrangement
+  static lv_coord_t col_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  lv_obj_set_grid_dsc_array(top, col_dsc, row_dsc);
+  lv_obj_set_grid_align(top, LV_GRID_ALIGN_CENTER, LV_GRID_ALIGN_CENTER);
+
+
+  // Power Consumption (top-left)
+  lv_obj_t * arc_power = lv_arc_create(top);
+  lv_obj_set_size(arc_power, 80, 80);
+  lv_obj_set_grid_cell(arc_power,
+      LV_GRID_ALIGN_CENTER, 0, 1,
+      LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_style_arc_width(arc_power, 7, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_width(arc_power, 7, LV_PART_MAIN);
+
+  lv_obj_t * lbl_power = lv_label_create(arc_power);
+  lv_label_set_text(lbl_power, "200W");
+  lv_obj_add_style(lbl_power, &style_white_font_20, 0);
+  lv_obj_center(lbl_power);
+
+  // CPU Temperature (top-right)
+  lv_obj_t * arc_temp = lv_arc_create(top);
+  lv_obj_set_size(arc_temp, 80, 80);
+  lv_obj_set_grid_cell(arc_temp,
+      LV_GRID_ALIGN_CENTER, 1, 1,
+      LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_obj_set_style_arc_width(arc_temp, 7, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_width(arc_temp, 7, LV_PART_MAIN);
+
+  lv_obj_t * lbl_temp = lv_label_create(arc_temp);
+  lv_label_set_text(lbl_temp, "0°C");
+  lv_obj_add_style(lbl_temp, &style_white_font_20, 0);
+  lv_obj_center(lbl_temp);
+
+  // CPU Usage (bottom-left)
+  lv_obj_t * arc_cpu = lv_arc_create(top);
+  lv_obj_set_size(arc_cpu, 80, 80);
+  lv_obj_set_grid_cell(arc_cpu,
+      LV_GRID_ALIGN_CENTER, 0, 1,
+      LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_obj_set_style_arc_width(arc_cpu, 8, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_width(arc_cpu, 8, LV_PART_MAIN);
+
+  lv_obj_t * lbl_cpu = lv_label_create(arc_cpu);
+  lv_label_set_text(lbl_cpu, "100%");
+  lv_obj_add_style(lbl_cpu, &style_white_font_20, 0);
+  lv_obj_center(lbl_cpu);
+
+  // Heap Memory (bottom-right)
+  lv_obj_t * arc_heap = lv_arc_create(top);
+  lv_obj_set_size(arc_heap, 80, 80);
+  lv_obj_set_grid_cell(arc_heap,
+      LV_GRID_ALIGN_CENTER, 1, 1,
+      LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_obj_set_style_arc_width(arc_heap, 7, LV_PART_INDICATOR);
+  lv_obj_set_style_arc_width(arc_heap, 7, LV_PART_MAIN);
+
+  lv_obj_t * lbl_heap = lv_label_create(arc_heap);
+  lv_label_set_text(lbl_heap, "112KB");
+  lv_obj_add_style(lbl_heap, &style_white_font_20, 0);
+  lv_obj_center(lbl_heap);
+
+  // System Information row (covers both columns)
+  lv_obj_t * sys_info = lv_obj_create(top);
+  lv_obj_set_style_bg_opa(sys_info, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(sys_info, 0, 0);
+  lv_obj_set_style_pad_all(sys_info, 4, 0);   // small padding for text
+  lv_obj_set_grid_cell(sys_info,
+      LV_GRID_ALIGN_STRETCH, 0, 2,   // start at col 0, span 2 columns
+      LV_GRID_ALIGN_CENTER, 2, 1);   // row index 2 (third row), span 1 row
+
+  // Add a label inside for system info
+  lv_obj_t * lbl_sys = lv_label_create(sys_info);
+  lv_obj_center(lbl_sys);
+
+  esp_chip_info_t chip_info;
+
+  esp_chip_info(&chip_info);
+  const esp_app_desc_t *app_desc = esp_app_get_description();
+
+  lv_label_set_text_fmt(lbl_sys,
+      "App v%s\nIDF %s\n%s",
+      app_desc->version,
+      esp_get_idf_version(),
+      chip_model_str(chip_info.model));
+  lv_obj_add_style(lbl_sys, &style_white_font_20, 0);
+
+  page->top = top;
+  page->p2.arc_power = arc_power;
+  page->p2.arc_temp = arc_temp;
+  page->p2.arc_cpu = arc_cpu;
+  page->p2.arc_heap = arc_heap;
+  page->p2.lbl_power = lbl_power;
+  page->p2.lbl_temp = lbl_temp;
+  page->p2.lbl_cpu = lbl_cpu;
+  page->p2.lbl_heap = lbl_heap;
 }
 
 static void
