@@ -264,6 +264,19 @@ my_lvgl_app_page1_anim_cb(void* var, int32_t v)
 {
   lvgl_port_lock(0);
 
+#if 0
+  static uint32_t last_run = 0;
+  uint32_t now = lv_tick_get();
+
+  // Only update every 100ms, even if LVGL calls this more often
+  if(now - last_run < 300)
+  {
+    lvgl_port_unlock();
+    return; 
+  }
+  last_run = now;
+#endif
+
   lv_img_set_angle((lv_obj_t *)var, v);
 
   lvgl_port_unlock();
@@ -301,22 +314,23 @@ my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
 {
   lvgl_port_lock(0);
 
+#if 0 // performance hog
   lv_anim_t   a;
-
   lv_anim_init(&a);
   lv_anim_set_var(&a, page->p1.img_glow);
   lv_anim_set_exec_cb(&a, my_lvgl_app_page1_anim_cb);
   lv_anim_set_values(&a, 0, 3600);     // 0 to 360 degrees
-  lv_anim_set_time(&a, 5000);          // 5 seconds per rotation
+  lv_anim_set_duration(&a, 5000);          // 5 seconds per rotation
   lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
   lv_anim_start(&a);
+#endif
 
   lv_anim_t   b;
   lv_anim_init(&b);
   lv_anim_set_var(&b, page->p1.img_thunder);
   lv_anim_set_exec_cb(&b, my_lvgl_app_page1_thunder_sprite_cb);
   lv_anim_set_values(&b, 0, 11);       // 12 frames (0–11)
-  lv_anim_set_time(&b, 1200);          // 1.2s for full cycle
+  lv_anim_set_duration(&b, 1200);          // 1.2s for full cycle
   lv_anim_set_repeat_count(&b, LV_ANIM_REPEAT_INFINITE);
   lv_anim_start(&b);
 
@@ -324,7 +338,7 @@ my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
   lv_anim_init(&c);
   lv_anim_set_var(&c, page->p1.img_power);
   lv_anim_set_values(&c, LV_OPA_TRANSP, LV_OPA_COVER); // 0 → 255
-  lv_anim_set_time(&c, 1000);   // 1 second fade
+  lv_anim_set_duration(&c, 1000);   // 1 second fade
   lv_anim_set_playback_time(&c, 1000); // fade back out
   lv_anim_set_repeat_count(&c, LV_ANIM_REPEAT_INFINITE);
   lv_anim_set_exec_cb(&c, my_lvgl_app_page1_power_anim_cb);
@@ -336,7 +350,12 @@ my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
 static void
 my_lvgl_app_page1_deactivate(my_lvgl_app_page_t* page)
 {
+
   lvgl_port_lock(0);
+
+#if 0 // performance hog
+  lv_anim_del(page->p1.img_glow, NULL);
+#endif
 
   lv_anim_del(page->p1.img_glow, my_lvgl_app_page1_anim_cb);
   lv_anim_del(page->p1.img_thunder, my_lvgl_app_page1_thunder_sprite_cb);
@@ -504,7 +523,6 @@ get_cpu_usage(void)
 {
   char stats_buf[512];
   vTaskGetRunTimeStats(stats_buf);
-
   // Find "IDLE" line
   char *idle_line = strstr(stats_buf, "IDLE");
   if (!idle_line) return -1;
