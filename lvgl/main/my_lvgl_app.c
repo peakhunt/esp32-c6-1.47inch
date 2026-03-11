@@ -17,6 +17,8 @@
 LV_IMG_DECLARE(page0_ui)
 LV_IMG_DECLARE(glow)
 LV_IMG_DECLARE(img5)
+LV_IMG_DECLARE(thunder)
+LV_IMG_DECLARE(power)
 
 typedef struct my_lvgl_app_page my_lvgl_app_page_t;
 
@@ -40,7 +42,10 @@ struct my_lvgl_app_page
     } p0;
     struct
     {
+      lv_obj_t* img_glow;
       lv_obj_t* lbl_total;
+      lv_obj_t* img_thunder;
+      lv_obj_t* img_power;
     } p1;
     struct
     {
@@ -172,7 +177,28 @@ my_lvgl_app_page0_deactivate(my_lvgl_app_page_t* page)
 static void
 my_lvgl_app_page1_init(my_lvgl_app_page_t* page)
 {
-  lv_obj_t * bg = lv_img_create(lv_scr_act());
+  lv_obj_t* top = lv_obj_create(lv_scr_act());
+  lv_obj_set_layout(top, LV_LAYOUT_NONE);
+  lv_obj_set_size(top, LV_HOR_RES, LV_VER_RES);   // fill the whole screen
+  lv_obj_set_pos(top, 0, 0);
+  lv_obj_set_style_bg_opa(top, LV_OPA_TRANSP, 0);   // fully transparent
+  lv_obj_set_style_border_width(top, 0, 0);         // no border
+  lv_obj_set_style_pad_all(top, 0, 0);
+  lv_obj_set_style_margin_all(top, 0, 0);
+  lv_obj_clear_flag(top, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t* img_power = lv_img_create(top);
+  lv_obj_set_size(img_power, 20, 34);
+  lv_img_set_src(img_power, &power);
+  lv_obj_set_pos(img_power, 76, 40);
+
+  lv_obj_t* img_thunder = lv_img_create(top);
+  lv_obj_set_size(img_thunder, 40, 86);
+  lv_img_set_src(img_thunder, &thunder);
+  lv_obj_set_pos(img_thunder, 66, 230);
+  lv_image_set_inner_align(img_thunder, LV_IMAGE_ALIGN_TOP_LEFT);
+
+  lv_obj_t * bg = lv_img_create(top);
   lv_img_set_src(bg, &glow);
   lv_obj_set_pos(bg, 0, 80);
 
@@ -182,7 +208,7 @@ my_lvgl_app_page1_init(my_lvgl_app_page_t* page)
   lv_obj_set_width(lbl_total, 172);
   lv_obj_set_style_text_align(lbl_total, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_pos(lbl_total, 0, 52);
-  
+
   lv_obj_t* lbl_w = lv_label_create(bg);
   lv_label_set_text(lbl_w, "W");
   lv_obj_add_style(lbl_w, &style_white_font_20, 0);
@@ -190,8 +216,11 @@ my_lvgl_app_page1_init(my_lvgl_app_page_t* page)
   lv_obj_set_style_text_align(lbl_w, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_set_pos(lbl_w, 0, 100);
 
-  page->top = bg;
+  page->top = top;
   page->p1.lbl_total = lbl_total;
+  page->p1.img_glow = bg;
+  page->p1.img_thunder = img_thunder;
+  page->p1.img_power = img_power;
 }
 
 static void
@@ -205,6 +234,29 @@ my_lvgl_app_page1_anim_cb(void* var, int32_t v)
 }
 
 static void
+my_lvgl_app_page1_thunder_sprite_cb(void* var, int32_t frame)
+{
+  lvgl_port_lock(0);
+
+  lv_obj_t * img = (lv_obj_t *)var;
+
+  int col = frame % 6;
+  int row = frame / 6;
+
+  lv_image_set_offset_x(img, -col * 40);
+  lv_image_set_offset_y(img, -row * 86);
+
+  lvgl_port_unlock();
+}
+
+static void
+my_lvgl_app_page1_power_anim_cb(void* var, int32_t v)
+{
+  lv_obj_t * obj = (lv_obj_t *)var;
+  lv_obj_set_style_opa(obj, v, 0);
+}
+
+static void
 my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
 {
   lvgl_port_lock(0);
@@ -212,12 +264,31 @@ my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
   lv_anim_t   a;
 
   lv_anim_init(&a);
-  lv_anim_set_var(&a, page->top);
+  lv_anim_set_var(&a, page->p1.img_glow);
   lv_anim_set_exec_cb(&a, my_lvgl_app_page1_anim_cb);
   lv_anim_set_values(&a, 0, 3600);     // 0 to 360 degrees
   lv_anim_set_time(&a, 5000);          // 5 seconds per rotation
   lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
   lv_anim_start(&a);
+
+  lv_anim_t   b;
+  lv_anim_init(&b);
+  lv_anim_set_var(&b, page->p1.img_thunder);
+  lv_anim_set_exec_cb(&b, my_lvgl_app_page1_thunder_sprite_cb);
+  lv_anim_set_values(&b, 0, 11);       // 12 frames (0–11)
+  lv_anim_set_time(&b, 1200);          // 1.2s for full cycle
+  lv_anim_set_repeat_count(&b, LV_ANIM_REPEAT_INFINITE);
+  lv_anim_start(&b);
+
+  lv_anim_t c;
+  lv_anim_init(&c);
+  lv_anim_set_var(&c, page->p1.img_power);
+  lv_anim_set_values(&c, LV_OPA_TRANSP, LV_OPA_COVER); // 0 → 255
+  lv_anim_set_time(&c, 1000);   // 1 second fade
+  lv_anim_set_playback_time(&c, 1000); // fade back out
+  lv_anim_set_repeat_count(&c, LV_ANIM_REPEAT_INFINITE);
+  lv_anim_set_exec_cb(&c, my_lvgl_app_page1_power_anim_cb);
+  lv_anim_start(&c);
 
   lvgl_port_unlock();
 }
@@ -225,7 +296,13 @@ my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
 static void
 my_lvgl_app_page1_deactivate(my_lvgl_app_page_t* page)
 {
-  lv_anim_del(page->top, my_lvgl_app_page1_anim_cb);
+  lvgl_port_lock(0);
+
+  lv_anim_del(page->p1.img_glow, my_lvgl_app_page1_anim_cb);
+  lv_anim_del(page->p1.img_thunder, my_lvgl_app_page1_thunder_sprite_cb);
+  lv_anim_del(page->p1.img_power, my_lvgl_app_page1_power_anim_cb);
+
+  lvgl_port_unlock();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
