@@ -264,19 +264,6 @@ my_lvgl_app_page1_anim_cb(void* var, int32_t v)
 {
   lvgl_port_lock(0);
 
-#if 0
-  static uint32_t last_run = 0;
-  uint32_t now = lv_tick_get();
-
-  // Only update every 100ms, even if LVGL calls this more often
-  if(now - last_run < 300)
-  {
-    lvgl_port_unlock();
-    return; 
-  }
-  last_run = now;
-#endif
-
   lv_img_set_angle((lv_obj_t *)var, v);
 
   lvgl_port_unlock();
@@ -518,6 +505,7 @@ my_lvgl_app_show_page(uint8_t page)
   lvgl_port_unlock();
 }
 
+#if 0
 static int
 get_cpu_usage(void)
 {
@@ -533,6 +521,7 @@ get_cpu_usage(void)
 
   return 100 - idle_percent;
 }
+#endif
 
 //
 // XXX
@@ -583,10 +572,10 @@ watt_simulator_cb(lv_timer_t * timer)
   lv_arc_set_value(app_pages[2].p2.arc_power, total);
   lv_label_set_text_fmt(app_pages[2].p2.lbl_power,  "%dW", total);
 
-  int cpu_usage = get_cpu_usage();
+  extern volatile uint32_t cpu_usage;
 
-  lv_arc_set_value(app_pages[2].p2.arc_cpu, cpu_usage);
-  lv_label_set_text_fmt(app_pages[2].p2.lbl_cpu,  "%d%%", cpu_usage);
+  lv_arc_set_value(app_pages[2].p2.arc_cpu, (int)cpu_usage);
+  lv_label_set_text_fmt(app_pages[2].p2.lbl_cpu,  "%d%%", (int)cpu_usage);
 
   lv_arc_set_value(app_pages[2].p2.arc_temp, (int)tsens_out);
   snprintf(buf, 16, "%.1f°C", tsens_out);
