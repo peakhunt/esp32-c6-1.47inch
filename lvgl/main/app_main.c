@@ -199,7 +199,7 @@ static void stats_task(void *arg)
   //Print real time stats periodically
   while (1) {
     if (print_real_time_stats(pdMS_TO_TICKS(1000), &usage) == ESP_OK) {
-      // printf("Real time stats obtained\n");
+      // printf("Real time stats obtained %ld\n", usage);
       cpu_usage = usage;
     } else {
       // printf("Error getting real time stats\n");
