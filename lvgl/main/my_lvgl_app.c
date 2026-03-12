@@ -19,12 +19,18 @@
 #include "driver/temperature_sensor.h"
 #include "esp_heap_caps.h"
 
+#define MY_LVGL_APP_USE_PERF_HOG      0
+#define MY_LVGL_APP_USE_GLOW_CIRCLE   0
+
 #define NUM_ELEM(x) (sizeof(x) / sizeof((x)[0]))
 
 LV_IMG_DECLARE(page0_ui)
 LV_IMG_DECLARE(glow)
 LV_IMG_DECLARE(thunder)
 LV_IMG_DECLARE(power)
+#if MY_LVGL_APP_USE_GLOW_CIRCLE == 1
+LV_IMG_DECLARE(circle)
+#endif
 
 typedef struct my_lvgl_app_page my_lvgl_app_page_t;
 
@@ -235,7 +241,11 @@ my_lvgl_app_page1_init(my_lvgl_app_page_t* page)
   lv_image_set_inner_align(img_thunder, LV_IMAGE_ALIGN_TOP_LEFT);
 
   lv_obj_t * bg = lv_img_create(top);
+#if MY_LVGL_APP_USE_GLOW_CIRCLE == 1
+  lv_img_set_src(bg, &circle);
+#else
   lv_img_set_src(bg, &glow);
+#endif
   lv_obj_set_pos(bg, 0, 80);
 
   lv_obj_t* lbl_total = lv_label_create(bg);
@@ -301,7 +311,7 @@ my_lvgl_app_page1_activate(my_lvgl_app_page_t* page)
 {
   lvgl_port_lock(0);
 
-#if 0 // performance hog
+#if MY_LVGL_APP_USE_PERF_HOG == 1
   lv_anim_t   a;
   lv_anim_init(&a);
   lv_anim_set_var(&a, page->p1.img_glow);
@@ -340,7 +350,7 @@ my_lvgl_app_page1_deactivate(my_lvgl_app_page_t* page)
 
   lvgl_port_lock(0);
 
-#if 0 // performance hog
+#if MY_LVGL_APP_USE_PERF_HOG == 1
   lv_anim_del(page->p1.img_glow, NULL);
 #endif
 
