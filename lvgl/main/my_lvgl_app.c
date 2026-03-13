@@ -452,29 +452,67 @@ my_lvgl_app_page2_init(my_lvgl_app_page_t* page)
   lv_obj_center(lbl_mem);
 
   // System Information row (covers both columns)
-  lv_obj_t * sys_info = lv_obj_create(top);
-  lv_obj_set_style_bg_opa(sys_info, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(sys_info, 0, 0);
-  lv_obj_set_style_pad_all(sys_info, 4, 0);   // small padding for text
-  lv_obj_set_grid_cell(sys_info,
-      LV_GRID_ALIGN_STRETCH, 0, 2,   // start at col 0, span 2 columns
-      LV_GRID_ALIGN_CENTER, 2, 1);   // row index 2 (third row), span 1 row
-
-  // Add a label inside for system info
-  lv_obj_t * lbl_sys = lv_label_create(sys_info);
-  lv_obj_center(lbl_sys);
-
   esp_chip_info_t chip_info;
 
   esp_chip_info(&chip_info);
   const esp_app_desc_t *app_desc = esp_app_get_description();
 
-  lv_label_set_text_fmt(lbl_sys,
-      "App v%s\nIDF %s\n%s",
-      app_desc->version,
-      esp_get_idf_version(),
-      chip_model_str(chip_info.model));
-  lv_obj_add_style(lbl_sys, &style_white_font_20, 0);
+  lv_obj_t * sys_info = lv_obj_create(top);
+  lv_obj_set_style_bg_opa(sys_info, LV_OPA_TRANSP, 0);
+  lv_obj_clear_flag(sys_info, LV_OBJ_FLAG_SCROLLABLE);
+  //lv_obj_set_style_border_width(sys_info, 0, 0);
+  lv_obj_set_style_pad_all(sys_info, 4, 0);   // small padding for text
+  lv_obj_set_size(sys_info, LV_PCT(100), LV_PCT(24));
+  lv_obj_set_layout(sys_info, LV_LAYOUT_GRID);
+  lv_obj_set_grid_cell(sys_info,
+      LV_GRID_ALIGN_STRETCH, 0, 2,   // start at col 0, span 2 columns
+      LV_GRID_ALIGN_CENTER, 2, 1);   // row index 2 (third row), span 1 row
+
+  static lv_coord_t col_dsc2[] = {LV_GRID_CONTENT, LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  static lv_coord_t row_dsc2[] = {LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST};
+  lv_obj_set_grid_dsc_array(sys_info, col_dsc2, row_dsc2);
+
+  lv_obj_t*   lbl_app = lv_label_create(sys_info);
+   lv_obj_add_style(lbl_app, &style_white_font_20, 0);
+  lv_obj_set_grid_cell(lbl_app,
+      LV_GRID_ALIGN_START, 0, 1,
+      LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_label_set_text(lbl_app, "APP");
+
+  lv_obj_t*   lbl_app_v = lv_label_create(sys_info);
+   lv_obj_add_style(lbl_app_v, &style_white_font_20, 0);
+  lv_obj_set_grid_cell(lbl_app_v,
+      LV_GRID_ALIGN_START, 1, 1,
+      LV_GRID_ALIGN_CENTER, 0, 1);
+  lv_label_set_text_fmt(lbl_app_v, "v%s", app_desc->version);
+
+  lv_obj_t*   lbl_idf = lv_label_create(sys_info);
+   lv_obj_add_style(lbl_idf, &style_white_font_20, 0);
+  lv_obj_set_grid_cell(lbl_idf,
+      LV_GRID_ALIGN_START, 0, 1,
+      LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_label_set_text(lbl_idf, "IDF");
+
+  lv_obj_t*   lbl_idf_v = lv_label_create(sys_info);
+   lv_obj_add_style(lbl_idf_v, &style_white_font_20, 0);
+  lv_obj_set_grid_cell(lbl_idf_v,
+      LV_GRID_ALIGN_START, 1, 1,
+      LV_GRID_ALIGN_CENTER, 1, 1);
+  lv_label_set_text_fmt(lbl_idf_v, "%s", esp_get_idf_version());
+
+  lv_obj_t*   lbl_chip = lv_label_create(sys_info);
+   lv_obj_add_style(lbl_chip, &style_white_font_20, 0);
+  lv_obj_set_grid_cell(lbl_chip,
+      LV_GRID_ALIGN_START, 0, 1,
+      LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_label_set_text(lbl_chip, "Chip");
+
+  lv_obj_t*   lbl_chip_v = lv_label_create(sys_info);
+   lv_obj_add_style(lbl_chip_v, &style_white_font_20, 0);
+  lv_obj_set_grid_cell(lbl_chip_v,
+      LV_GRID_ALIGN_START, 1, 1,
+      LV_GRID_ALIGN_CENTER, 2, 1);
+  lv_label_set_text_fmt(lbl_chip_v, "%s", chip_model_str(chip_info.model));
 
   page->top = top;
   page->p2.arc_power = arc_power;
