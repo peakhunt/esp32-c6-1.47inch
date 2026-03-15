@@ -15,7 +15,7 @@
 // 
 // Accelerometer
 // It's an opposite force of Gravity
-// So in NED convention
+// So in NED convention, when lying still,
 // When Z axis points downward(toward Gravity), Z should report -1g
 // When Y axis points downward, Y should report -1g
 // When X axis points downward, X should report -1g
