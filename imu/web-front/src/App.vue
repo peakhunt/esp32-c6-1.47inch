@@ -74,57 +74,93 @@ import PitchGauge from './components/PitchGauge.vue'
 import RollGauge from './components/RollGauge.vue'
 import YawGauge from './components/YawGauge.vue'
 
+// --- HARDCORE CONFIG ---
+// Set this to true to simulate without the ESP32-C6
+const SIM_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
 const imu = ref({ roll: 0.0, pitch: 0.0, yaw: 0.0 })
 const chartRef = ref(null)
 let uplotInstance = null
-let timer = null
+let socket = null
+let simTimer = null
 
-const data = [
-  Array.from({length: 100}, (_, i) => i),
-  Array(100).fill(0),
-  Array(100).fill(0),
-  Array(100).fill(0)
+const maxChartData = 1000
+const chartData = [
+  Array.from({length: maxChartData}, (_, i) => i),
+  Array(maxChartData).fill(0),
+  Array(maxChartData).fill(0),
+  Array(maxChartData).fill(0)
 ]
+
+// Update logic shared by both WS and SIM
+const updateIMU = (r, p, y) => {
+  imu.value.roll = r
+  imu.value.pitch = p
+  imu.value.yaw = y
+
+  chartData[0].push(chartData[0][chartData[0].length - 1] + 1); chartData[0].shift()
+  chartData[1].push(r); chartData[1].shift()
+  chartData[2].push(p); chartData[2].shift()
+  chartData[3].push(y); chartData[3].shift()
+
+  if (uplotInstance) uplotInstance.setData(chartData)
+}
+
+const startSimulation = () => {
+  console.log("🚀 Running in LOCAL SIMULATION mode");
+  simTimer = setInterval(() => {
+    const t = Date.now() / 1000;
+    const r = Math.sin(t * 1.2) * 90;  // Roll ±90
+    const p = Math.cos(t * 0.8) * 90;  // Pitch ±90
+    const y = (t * 10) % 360;          // Yaw 0-360
+    updateIMU(r, p, y);
+  }, 20); // 50Hz
+}
+
+const connectWebSocket = () => {
+  socket = new WebSocket(`ws://${window.location.hostname}/ws_imu`)
+  socket.binaryType = "arraybuffer"
+
+  socket.onmessage = (event) => {
+    const view = new Float32Array(event.data)
+    updateIMU(view[0], view[1], view[2])
+  }
+
+  socket.onclose = () => {
+    console.log("C6 Disconnected. Retrying...");
+    socket = null;
+    if (!SIM_MODE) setTimeout(connectWebSocket, 2000)
+  }
+}
 
 onMounted(() => {
   const opts = {
     width: chartRef.value.offsetWidth,
     height: 250,
-    series: [
-      {},
+    series: [{}, 
       { stroke: "#485fc7", width: 2, label: "Roll" },
       { stroke: "#ff3860", width: 2, label: "Pitch" },
-      { stroke: "#ffdd57", width: 2, label: "Yaw" },
+      { stroke: "#ffdd57", width: 2, label: "Yaw" }
     ],
     axes: [
-      { grid: { stroke: "#f0f0f0", width: 1 } },
-      { 
-        grid: { stroke: "#f0f0f0", width: 1 },
-        values: (u, vals) => vals.map(v => v + "°") 
-      }
+      { grid: { stroke: "#f0f0f0" } },
+      { grid: { stroke: "#f0f0f0" }, values: (u, vals) => vals.map(v => v + "°") }
     ],
     cursor: { show: false }
   };
 
-  uplotInstance = new uPlot(opts, data, chartRef.value);
+  uplotInstance = new uPlot(opts, chartData, chartRef.value);
 
-  timer = setInterval(() => {
-    // 1-second simulation
-    imu.value.roll = Math.sin(Date.now() / 3000) * 45;
-    imu.value.pitch = Math.cos(Date.now() / 4000) * 45;
-    imu.value.yaw = (imu.value.yaw - 2) % 360;
-
-    data[0].push(data[0][data[0].length - 1] + 1); data[0].shift();
-    data[1].push(imu.value.roll); data[1].shift();
-    data[2].push(imu.value.pitch); data[2].shift();
-    data[3].push(imu.value.yaw); data[3].shift();
-
-    uplotInstance.setData(data);
-  }, 100);
+  if (SIM_MODE) {
+    startSimulation();
+  } else {
+    connectWebSocket();
+  }
 });
 
 onUnmounted(() => {
-  clearInterval(timer);
+  if (socket) socket.close();
+  if (simTimer) clearInterval(simTimer);
   if (uplotInstance) uplotInstance.destroy();
 });
 </script>

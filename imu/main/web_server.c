@@ -50,7 +50,7 @@ struct file_server_data
 
 
 static const char* TAG = "web_server";
-static httpd_handle_t server = NULL;
+static httpd_handle_t _server = NULL;
 static struct file_server_data *server_data = NULL;
 
 static esp_err_t
@@ -376,67 +376,6 @@ static const httpd_uri_t sse = {
 // HTTP GET default Handler for file serving
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-#if 0 // no gzip suppoert
-static esp_err_t
-default_get_handler(httpd_req_t *req)
-{
-  char filepath[FILE_PATH_MAX];
-
-  struct file_server_data *user_ctx = (struct file_server_data *)req->user_ctx;
-  strlcpy(filepath, user_ctx->base_path, sizeof(filepath));
-
-  if (req->uri[strlen(req->uri) - 1] == '/') {
-    strlcat(filepath, "/index.html", sizeof(filepath));
-  } else {
-    strlcat(filepath, req->uri, sizeof(filepath));
-  }
-
-  int fd = open(filepath, O_RDONLY, 0);
-  if (fd == -1)
-  {
-    ESP_LOGE(TAG, "Failed to open file : %s", filepath);
-    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to read existing file");
-    return ESP_FAIL;
-  }
-
-  set_content_type_from_file(req, filepath);
-
-  char *chunk = user_ctx->scratch;
-  ssize_t read_bytes;
-
-  do
-  {
-    /* Read file in chunks into the scratch buffer */
-    read_bytes = read(fd, chunk, SCRATCH_BUFSIZE);
-
-    if (read_bytes == -1)
-    {
-      ESP_LOGE(TAG, "Failed to read file : %s", filepath);
-    }
-    else if (read_bytes > 0)
-    {
-      /* Send the buffer contents as HTTP response chunk */
-      if (httpd_resp_send_chunk(req, chunk, read_bytes) != ESP_OK)
-      {
-        close(fd);
-        ESP_LOGE(TAG, "File sending failed!");
-        /* Abort sending file */
-        httpd_resp_sendstr_chunk(req, NULL);
-        /* Respond with 500 Internal Server Error */
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to send file");
-        return ESP_FAIL;
-      }
-    }
-  } while (read_bytes > 0);
-
-  /* Close file after sending complete */
-  close(fd);
-  ESP_LOGI(TAG, "File sending complete");
-  /* Respond with an empty chunk to signal HTTP response completion */
-  httpd_resp_send_chunk(req, NULL, 0);
-  return ESP_OK;
-}
-#else
 static esp_err_t
 default_get_handler(httpd_req_t *req)
 {
@@ -499,13 +438,91 @@ default_get_handler(httpd_req_t *req)
   return ESP_OK;
 
 }
-#endif
 
 static httpd_uri_t common_get_uri = {
   .uri = "/*",
   .method = HTTP_GET,
   .handler = default_get_handler,
   .user_ctx = NULL,
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// HTTP Web Socket Handler for Realtime IMU data
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+static esp_err_t
+ws_imu_handler(httpd_req_t *req)
+{
+  if (req->method == HTTP_GET)
+  {
+    // This is the handshake; return ESP_OK to switch protocols
+    ESP_LOGI("WS", "Handshake done, client connected");
+    return ESP_OK;
+  }
+
+  httpd_ws_frame_t ws_pkt;
+  uint8_t *buf = NULL;
+  memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+
+  // First call to get the frame length
+  esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 0);
+  if (ret != ESP_OK)
+  {
+    return ret;
+  }
+
+  if (ws_pkt.len > 0)
+  {
+    buf = calloc(1, ws_pkt.len + 1);
+    ws_pkt.payload = buf;
+
+    // Second call to actually receive data
+    ret = httpd_ws_recv_frame(req, &ws_pkt, ws_pkt.len);
+    if (ret == ESP_OK)
+    {
+      ESP_LOGI("WS", "Received packet: %s", ws_pkt.payload);
+    }
+    free(buf);
+  }
+  return ret;
+}
+
+void
+ws_broadcast_imu_update(float r, float p, float y)
+{
+  float data[3] = {r, p, y};
+  size_t clients = 8; // Max clients to check
+  int fds[8];
+
+  // Get list of all secure/active file descriptors
+  if (httpd_get_client_list(_server, &clients, fds) == ESP_OK)
+  {
+    for (size_t i = 0; i < clients; i++)
+    {
+      // Only send if the descriptor is actually a WebSocket
+      if (httpd_ws_get_fd_info(_server, fds[i]) == HTTPD_WS_CLIENT_WEBSOCKET)
+      {
+        httpd_ws_frame_t packet = 
+        {
+          .payload = (uint8_t *)data,
+          .len = sizeof(data),
+          .type = HTTPD_WS_TYPE_BINARY,
+          .final = true
+        };
+        // Use async send to avoid blocking your IMU filter task
+        httpd_ws_send_frame_async(_server, fds[i], &packet);
+      }
+    }
+  }
+}
+
+static httpd_uri_t ws_imu_uri = {
+  .uri = "/ws_imu",
+  .method = HTTP_GET,
+  .handler = ws_imu_handler,
+  .user_ctx = NULL,
+  .is_websocket = true,
 };
 
 void
@@ -523,22 +540,23 @@ web_server_init(void)
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
   config.max_uri_handlers = 32;
-  config.max_open_sockets = 10;
+  config.max_open_sockets = 20;
   config.lru_purge_enable = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
 
   ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
-  if (httpd_start(&server, &config) == ESP_OK)
+  if (httpd_start(&_server, &config) == ESP_OK)
   {
     common_get_uri.user_ctx = server_data;
 
     // Set URI handlers
     ESP_LOGI(TAG, "Registering URI handlers");
-    httpd_register_uri_handler(server, &hello);
-    httpd_register_uri_handler(server, &echo);
-    httpd_register_uri_handler(server, &ctrl);
-    httpd_register_uri_handler(server, &any);
-    httpd_register_uri_handler(server, &sse);
-    httpd_register_uri_handler(server, &common_get_uri);
+    httpd_register_uri_handler(_server, &hello);
+    httpd_register_uri_handler(_server, &echo);
+    httpd_register_uri_handler(_server, &ctrl);
+    httpd_register_uri_handler(_server, &any);
+    httpd_register_uri_handler(_server, &sse);
+    httpd_register_uri_handler(_server, &ws_imu_uri);
+    httpd_register_uri_handler(_server, &common_get_uri);
   }
 }

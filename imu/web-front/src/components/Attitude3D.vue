@@ -1,20 +1,25 @@
 <template>
   <div class="card has-background-white shadow-card mt-5">
     <div class="card-content p-2">
+      <!-- Added Bulma Reset Button -->
+      <div class="is-flex is-justify-content-flex-end px-3 pt-2">
+        <button class="button is-small is-dark is-rounded has-text-weight-bold" @click="resetHeading">
+          RESET HEADING
+        </button>
+      </div>
+
       <div class="canvas-wrapper">
-        <!-- HUD Overlay: Top Left -->
         <div class="hud-overlay">
           <div class="hud-line"><span class="hud-label">R:</span> {{ props.roll.toFixed(1) }}°</div>
           <div class="hud-line"><span class="hud-label">P:</span> {{ props.pitch.toFixed(1) }}°</div>
           <div class="hud-line"><span class="hud-label">Y:</span> {{ props.yaw.toFixed(1) }}°</div>
         </div>
 
-        <!-- DYNAMIC 3D LABELS -->
         <div class="label-3d n-label" :style="labelStyles.n">N</div>
         <div class="label-3d e-label" :style="labelStyles.e">E</div>
         <div class="label-3d d-label" :style="labelStyles.d">D</div>
 
-        <p class="heading has-text-centered has-text-black has-text-weight-bold mb-2 pt-2">
+        <p class="heading has-text-centered has-text-black has-text-weight-bold mb-2">
           3D ATTITUDE (NED)
         </p>
         <canvas ref="glCanvas" class="attitude-canvas"></canvas>
@@ -31,6 +36,15 @@ const props = defineProps(['roll', 'pitch', 'yaw'])
 const glCanvas = ref(null)
 const m4 = twgl.m4
 
+// State for the yaw offset
+const yawOffset = ref(0)
+
+const resetHeading = () => {
+  // Capture current yaw as the new "zero"
+  // console.log(`yaw heading reset ${props.yaw}`)
+  yawOffset.value = props.yaw
+}
+
 const labelStyles = reactive({
   n: { transform: 'translate(-100px, -100px)' },
   e: { transform: 'translate(-100px, -100px)' },
@@ -40,7 +54,6 @@ const labelStyles = reactive({
 onMounted(() => {
   const gl = glCanvas.value.getContext("webgl")
   const programInfo = twgl.createProgramInfo(gl, [vs, fs])
-
   const cubeBufferInfo = twgl.primitives.createCubeBufferInfo(gl, 1)
   const lineBufferInfo = twgl.createBufferInfoFromArrays(gl, { position: [0,0,0, 1,0,0] })
   const coneBufferInfo = twgl.primitives.createTruncatedConeBufferInfo(gl, 0.15, 0, 0.4, 12, 1)
@@ -53,21 +66,22 @@ onMounted(() => {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     const projection = m4.perspective(45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 50)
-    
-    // Standard WebGL Camera (Looking at origin from behind/above)
     const cameraPos = [0, 2.5, 13] 
     const target = [0, 0, 0]
     const up = [0, 1, 0] 
     const camera = m4.lookAt(cameraPos, target, up)
     const viewProj = m4.multiply(projection, m4.inverse(camera))
 
-    // YOUR CORRECT ROTATION LOGIC
-    let world = m4.identity()
-    world = m4.axisRotate(world, [0, 1, 0], -props.yaw * Math.PI / 180)   // Yaw (Up)
-    world = m4.axisRotate(world, [1, 0, 0], props.pitch * Math.PI / 180)  // Pitch (Right)
-    world = m4.axisRotate(world, [0, 0, 1], -props.roll * Math.PI / 180)  // Roll (Depth)
+    // CALCULATE COMPENSATED YAW
+    // Subtract the offset so current heading becomes 0 (facing -Z)
+    const displayYaw = props.yaw - yawOffset.value
 
-    // Helper: Project 3D coordinate to 2D Screen pixel
+    let world = m4.identity()
+    world = m4.axisRotate(world, [0, 1, 0], -displayYaw * Math.PI / 180)   // Compensated Yaw
+    world = m4.axisRotate(world, [1, 0, 0], props.pitch * Math.PI / 180)  // Pitch
+    world = m4.axisRotate(world, [0, 0, 1], -props.roll * Math.PI / 180)  // Roll
+
+    // Rest of your projection/drawing code remains the same...
     const projectLabel = (localPos) => {
       const tip3d = m4.transformPoint(world, localPos)
       const clipSpace = m4.transformPoint(viewProj, tip3d)
@@ -76,40 +90,28 @@ onMounted(() => {
       return `translate(${x}px, ${y}px)`
     }
 
-    labelStyles.n.transform = projectLabel([0, 0, -4.5]) // N (-Z)
-    labelStyles.e.transform = projectLabel([3.5, 0, 0])  // E (+X)
-    labelStyles.d.transform = projectLabel([0, -3.0, 0]) // D (-Y)
+    labelStyles.n.transform = projectLabel([0, 0, -4.5]) 
+    labelStyles.e.transform = projectLabel([3.5, 0, 0])  
+    labelStyles.d.transform = projectLabel([0, -3.0, 0]) 
 
     gl.useProgram(programInfo.program)
-
-    // 1. RECTANGLE BODY
     let rectMat = m4.multiply(viewProj, world)
     rectMat = m4.scale(rectMat, [2.0, 0.6, 3.5]) 
     twgl.setBuffersAndAttributes(gl, programInfo, cubeBufferInfo)
     twgl.setUniforms(programInfo, { u_matrix: rectMat, u_color: [0.1, 0.14, 0.49, 1.0], u_isBody: true })
     twgl.drawBufferInfo(gl, cubeBufferInfo)
 
-    // 2. ARROWS
     const drawArrow = (direction, length, color) => {
       let mat = m4.multiply(viewProj, world)
-      if (direction === 'N') mat = m4.axisRotate(mat, [0, 1, 0], Math.PI / 2) // Point toward -Z
-      if (direction === 'D') mat = m4.axisRotate(mat, [0, 0, 1], -Math.PI / 2) // Point toward -Y
-      
-      let lMat = m4.scale(mat, [length, 1, 1])
-      twgl.setBuffersAndAttributes(gl, programInfo, lineBufferInfo)
-      twgl.setUniforms(programInfo, { u_matrix: lMat, u_color: color, u_isBody: false })
-      twgl.drawBufferInfo(gl, lineBufferInfo, gl.LINES)
-
-      let cMat = m4.translate(mat, [length, 0, 0])
-      cMat = m4.axisRotate(cMat, [0, 0, 1], -Math.PI / 2)
-      twgl.setBuffersAndAttributes(gl, programInfo, coneBufferInfo)
-      twgl.setUniforms(programInfo, { u_matrix: cMat, u_color: color, u_isBody: false })
-      twgl.drawBufferInfo(gl, coneBufferInfo)
+      if (direction === 'N') mat = m4.axisRotate(mat, [0, 1, 0], Math.PI / 2)
+      if (direction === 'D') mat = m4.axisRotate(mat, [0, 0, 1], -Math.PI / 2)
+      let lMat = m4.scale(mat, [length, 1, 1]); twgl.setBuffersAndAttributes(gl, programInfo, lineBufferInfo); twgl.setUniforms(programInfo, { u_matrix: lMat, u_color: color, u_isBody: false }); twgl.drawBufferInfo(gl, lineBufferInfo, gl.LINES);
+      let cMat = m4.translate(mat, [length, 0, 0]); cMat = m4.axisRotate(cMat, [0, 0, 1], -Math.PI / 2); twgl.setBuffersAndAttributes(gl, programInfo, coneBufferInfo); twgl.setUniforms(programInfo, { u_matrix: cMat, u_color: color, u_isBody: false }); twgl.drawBufferInfo(gl, coneBufferInfo)
     }
 
-    drawArrow('N', 4.0, [1, 0, 0, 1])          // Red: Forward (North)
-    drawArrow(null, 3.0, [0, 0, 1, 1])         // Blue: Right (East)
-    drawArrow('D', 2.5, [0, 0.8, 0, 1])        // Green: Down (Down)
+    drawArrow('N', 4.0, [1, 0, 0, 1])
+    drawArrow(null, 3.0, [0, 0, 1, 1])
+    drawArrow('D', 2.5, [0, 0.8, 0, 1])
     
     requestAnimationFrame(render)
   }

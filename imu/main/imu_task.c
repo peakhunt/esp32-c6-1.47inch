@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "mpu9250.h"
 #include "imu.h"
+#include "web_server.h"
 
 static const char *TAG = "imu_task";
 
@@ -37,6 +38,22 @@ measure_sample_rate(void)
   }
 }
 
+static inline void
+throttled_imu_data_send(void)
+{
+  static int skip_count = 0;
+
+  // IMU task's target is 500Mz.
+  // send data at 50Hz
+  if (++skip_count >= 10)
+  { 
+    ws_broadcast_imu_update(_imu.data.orientation[0], 
+                            _imu.data.orientation[1],
+                            _imu.data.orientation[2]);
+    skip_count = 0;
+  }
+}
+
 static void
 imu_task(void *arg)
 {
@@ -58,6 +75,8 @@ imu_task(void *arg)
 
     measure_sample_rate();
 
+    throttled_imu_data_send();
+
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
 }
@@ -66,7 +85,7 @@ void
 imu_task_init(void)
 {
   _mutex = xSemaphoreCreateMutex();
-  xTaskCreate(imu_task, "imu_task", 4096, NULL, 5, NULL);
+  xTaskCreate(imu_task, "imu_task", 4096, NULL, 15, NULL);
 }
 
 void
