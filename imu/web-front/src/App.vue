@@ -6,43 +6,60 @@
         <h1 class="title has-text-centered is-size-3 has-text-black has-text-weight-black">IMU Status</h1>
       </div>
 
-      <div class="columns is-mobile is-variable is-2">
-        
-        <!-- ROLL COLUMN -->
-        <div class="column is-4">
-          <div class="card has-background-white has-text-centered shadow-card">
-            <div class="card-content px-2 py-5">
-              <p class="heading has-text-weight-bold has-text-black mb-4">ROLL</p>
-              <RollGauge :roll="imu.roll" />
-              <p class="title is-2 has-text-black">{{ imu.roll.toFixed(1) }}°</p>
-            </div>
+      <!-- Main Stats Container -->
+      <div class="columns is-mobile is-multiline mb-5 has-background-white shadow-card p-4">
+
+        <!-- STATUS: Half width on mobile, Auto on desktop -->
+        <div class="column is-6-mobile has-text-centered">
+          <p class="heading">STATUS</p>
+          <div :class="['status-indicator', state.stats.connected ? 'is-live' : 'is-off']">
+            <span class="tag is-rounded has-text-weight-bold">
+              {{ state.stats.connected ? 'LIVE' : 'OFFLINE' }}
+            </span>
           </div>
         </div>
 
-        <!-- PITCH COLUMN (Sky/Ground ADI) -->
-        <div class="column is-4">
-          <div class="card has-background-white has-text-centered shadow-card">
-            <div class="card-content px-2 py-5">
-              <p class="heading has-text-weight-bold has-text-black mb-4">PITCH</p>
-              <PitchGauge :pitch="imu.pitch" />
-              <p class="title is-2 has-text-black">{{ imu.pitch.toFixed(1) }}°</p>
-            </div>
-          </div>
+        <!-- CPU: Half width on mobile -->
+        <div class="column is-6-mobile has-text-centered">
+          <p class="heading">CPU</p>
+          <p class="title is-5 has-text-black">{{ state.cpuUsage }}%</p>
         </div>
 
-        <!-- YAW COLUMN (Compass) -->
-        <div class="column is-4">
+        <!-- LOOP: Half width on mobile -->
+        <div class="column is-6-mobile has-text-centered">
+          <p class="heading">LOOP</p>
+          <p class="title is-5 has-text-black">{{ state.samplingRate }}Hz</p>
+        </div>
+
+        <!-- I2C TX: Half width on mobile -->
+        <div class="column is-6-mobile has-text-centered">
+          <p class="heading">I2C TX</p>
+          <p class="title is-5 has-text-black">{{ state.i2cTransactions.toLocaleString() }}</p>
+        </div>
+
+        <!-- I2C FAIL: Full width on mobile to emphasize errors -->
+        <div class="column is-12-mobile has-text-centered">
+          <p class="heading">I2C FAIL</p>
+          <p class="title is-5" :class="state.i2cFailed > 0 ? 'has-text-danger' : 'has-text-grey-light'">
+          {{ state.i2cFailed }}
+          </p>
+        </div>
+      </div>
+
+      <!-- GAUGES SECTION -->
+      <div class="columns is-multiline is-variable is-2">
+        <div class="column is-4-desktop is-12-mobile" v-for="type in ['ROLL', 'PITCH', 'YAW']" :key="type">
           <div class="card has-background-white has-text-centered shadow-card">
             <div class="card-content px-2 py-5">
-              <p class="heading has-text-weight-bold has-text-black mb-4">YAW</p>
-              <YawGauge :yaw="imu.yaw" />
-              <p class="title is-2 has-text-black">{{ imu.yaw.toFixed(0) }}°</p>
+              <p class="heading has-text-weight-bold has-text-black mb-4">{{ type }}</p>
+              <component :is="getGauge(type)" :[type.toLowerCase()]="state[type.toLowerCase()]" />
+              <p class="title is-2 has-text-black">{{ state[type.toLowerCase()].toFixed(type === 'YAW' ? 0 : 1) }}°</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Real-time Chart in White Card -->
+      <!-- TELEMETRY CHART -->
       <div class="column is-12 mt-5 p-0">
         <div class="card has-background-white shadow-card">
           <div class="card-content">
@@ -52,14 +69,14 @@
         </div>
       </div>
 
+      <!-- 3D ATTITUDE VIEW -->
       <div class="column is-12 mt-5 p-0">
         <div class="card has-background-white shadow-card">
           <div class="card-content">
-            <Attitude3D :roll="imu.roll" :pitch="imu.pitch" :yaw="imu.yaw" />
+            <Attitude3D :roll="state.roll" :pitch="state.pitch" :yaw="state.yaw" />
           </div>
         </div>
       </div>
-
 
     </div>
   </section>
@@ -67,6 +84,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useIMUStore } from './store/imuStore'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import Attitude3D from './components/Attitude3D.vue'
@@ -74,100 +92,120 @@ import PitchGauge from './components/PitchGauge.vue'
 import RollGauge from './components/RollGauge.vue'
 import YawGauge from './components/YawGauge.vue'
 
-// --- HARDCORE CONFIG ---
-// Set this to true to simulate without the ESP32-C6
-const SIM_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const { state, updateIMU, updateSystemStats, setConnected } = useIMUStore()
+const SIM_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 
-const imu = ref({ roll: 0.0, pitch: 0.0, yaw: 0.0 })
 const chartRef = ref(null)
 let uplotInstance = null
 let socket = null
 let simTimer = null
 
-const maxChartData = 1000
-const chartData = [
-  Array.from({length: maxChartData}, (_, i) => i),
-  Array(maxChartData).fill(0),
-  Array(maxChartData).fill(0),
-  Array(maxChartData).fill(0)
-]
+const chartData = [Array.from({length: 1000}, (_, i) => i), Array(1000).fill(0), Array(1000).fill(0), Array(1000).fill(0)]
 
-// Update logic shared by both WS and SIM
-const updateIMU = (r, p, y) => {
-  imu.value.roll = r
-  imu.value.pitch = p
-  imu.value.yaw = y
+const getGauge = (type) => ({ ROLL: RollGauge, PITCH: PitchGauge, YAW: YawGauge }[type])
 
+const handleIncomingData = (r, p, y) => {
+  updateIMU(r, p, y)
   chartData[0].push(chartData[0][chartData[0].length - 1] + 1); chartData[0].shift()
   chartData[1].push(r); chartData[1].shift()
   chartData[2].push(p); chartData[2].shift()
   chartData[3].push(y); chartData[3].shift()
-
   if (uplotInstance) uplotInstance.setData(chartData)
-}
-
-const startSimulation = () => {
-  console.log("🚀 Running in LOCAL SIMULATION mode");
-  simTimer = setInterval(() => {
-    const t = Date.now() / 1000;
-    const r = Math.sin(t * 1.2) * 90;  // Roll ±90
-    const p = Math.cos(t * 0.8) * 90;  // Pitch ±90
-    const y = (t * 10) % 360;          // Yaw 0-360
-    updateIMU(r, p, y);
-  }, 20); // 50Hz
 }
 
 const connectWebSocket = () => {
   socket = new WebSocket(`ws://${window.location.hostname}/ws_imu`)
   socket.binaryType = "arraybuffer"
-
+  socket.onopen = () => setConnected(true)
   socket.onmessage = (event) => {
-    const view = new Float32Array(event.data)
-    updateIMU(view[0], view[1], view[2])
+    const v = new DataView(event.data)
+    const r = v.getFloat32(0, true), p = v.getFloat32(4, true), y = v.getFloat32(8, true)
+    updateSystemStats(v.getInt32(12, true), v.getInt32(16, true), v.getBigUint64(20, true), v.getBigUint64(28, true))
+    handleIncomingData(r, p, y)
   }
-
   socket.onclose = () => {
-    console.log("C6 Disconnected. Retrying...");
-    socket = null;
+    setConnected(false); socket = null
     if (!SIM_MODE) setTimeout(connectWebSocket, 2000)
   }
 }
 
 onMounted(() => {
-  const opts = {
-    width: chartRef.value.offsetWidth,
-    height: 250,
-    series: [{}, 
-      { stroke: "#485fc7", width: 2, label: "Roll" },
-      { stroke: "#ff3860", width: 2, label: "Pitch" },
-      { stroke: "#ffdd57", width: 2, label: "Yaw" }
-    ],
-    axes: [
-      { grid: { stroke: "#f0f0f0" } },
-      { grid: { stroke: "#f0f0f0" }, values: (u, vals) => vals.map(v => v + "°") }
-    ],
+  uplotInstance = new uPlot({
+    width: chartRef.value.offsetWidth, height: 250,
+    series: [{}, { stroke: "#485fc7", label: "Roll" }, { stroke: "#ff3860", label: "Pitch" }, { stroke: "#ffdd57", label: "Yaw" }],
+    axes: [{ grid: { stroke: "#f0f0f0" } }, { grid: { stroke: "#f0f0f0" }, values: (u, vals) => vals.map(v => v + "°") }],
     cursor: { show: false }
-  };
+  }, chartData, chartRef.value)
 
-  uplotInstance = new uPlot(opts, chartData, chartRef.value);
+  const resizeObserver = new ResizeObserver(entries => {
+    for (let entry of entries) {
+      // Get the current width of the parent container
+      const newWidth = entry.contentRect.width;
+      
+      // Update uPlot size (Keep height fixed at 250 for readability)
+      if (uplotInstance && newWidth > 0) {
+        uplotInstance.setSize({ width: newWidth, height: 250 })
+      }
+    }
+  })
+
+  // Start watching the chart wrapper
+  if (chartRef.value) {
+    resizeObserver.observe(chartRef.value)
+  }
+
+  // Save observer for cleanup
+  uplotInstance._observer = resizeObserver
 
   if (SIM_MODE) {
-    startSimulation();
-  } else {
-    connectWebSocket();
-  }
-});
+    setConnected(true)
+    simTimer = setInterval(() => handleIncomingData(Math.sin(Date.now()/1000)*45, Math.cos(Date.now()/1000)*45, (Date.now()/100)%360), 20)
+  } else connectWebSocket()
+})
 
 onUnmounted(() => {
-  if (socket) socket.close();
-  if (simTimer) clearInterval(simTimer);
-  if (uplotInstance) uplotInstance.destroy();
-});
+  if (socket) socket.close()
+  if (simTimer) clearInterval(simTimer)
+  if (uplotInstance) {
+    // Stop the observer before destroying the instance
+    if (uplotInstance._observer) {
+      uplotInstance._observer.disconnect()
+    }
+    uplotInstance.destroy()
+  }
+})
 </script>
 
 <style scoped>
 .shadow-card { border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #efefef; }
-.title.is-2 { font-size: 2.5rem !important; font-weight: 900; color: #000 !important; }
-.uplot-wrapper { width: 100%; display: flex; justify-content: center; background-color: #ffffff; }
+.uplot-wrapper { width: 100%; display: flex; justify-content: center; background: #fff; }
 :deep(.uplot) { margin: 0 auto; }
+
+.status-indicator { display: inline-flex; align-items: center; justify-content: center; position: relative; }
+.status-indicator .tag { min-width: 85px; transition: all 0.3s ease; position: relative; z-index: 2; }
+.is-live .tag { background-color: #00d1b2 !important; color: white !important; animation: hardcore-pulse 2s infinite; }
+.is-off .tag { background-color: #ff3860 !important; color: white !important; }
+
+/* Force legend labels to pure black for maximum contrast */
+:deep(.u-legend .u-label) {
+  color: #000 !important;
+  font-weight: 800 !important;
+}
+
+/* Make the values next to labels darker */
+:deep(.u-legend .u-value) {
+  color: #333 !important;
+  font-weight: 600 !important;
+}
+
+/* Ensure axis labels on the canvas are crisp */
+:deep(.u-axis .u-value) {
+  color: #222 !important;
+}
+
+@keyframes hardcore-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 209, 178, 0.7); }
+  70% { box-shadow: 0 0 0 15px rgba(0, 209, 178, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 209, 178, 0); }
+}
 </style>
