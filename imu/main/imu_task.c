@@ -47,9 +47,18 @@ throttled_imu_data_send(void)
   // send data at 50Hz
   if (++skip_count >= 10)
   { 
-    ws_broadcast_imu_update(_imu.data.orientation[0], 
-                            _imu.data.orientation[1],
-                            _imu.data.orientation[2]);
+    imu_telemetry_pkt_t pkt;
+    extern volatile uint32_t cpu_usage;
+
+    pkt.roll        = _imu.data.orientation[0];
+    pkt.pitch       = _imu.data.orientation[1];
+    pkt.yaw         = _imu.data.orientation[2];
+    pkt.cpu_usage   = cpu_usage;
+    pkt.sample_rate = _sample_rate;
+    pkt.i2c_tx      = _mpu9250.num_transactions; 
+    pkt.i2c_fail    = _mpu9250.num_failed;
+
+    ws_broadcast_imu_update(&pkt);
     skip_count = 0;
   }
 }

@@ -489,9 +489,8 @@ ws_imu_handler(httpd_req_t *req)
 }
 
 void
-ws_broadcast_imu_update(float r, float p, float y)
+ws_broadcast_imu_update(imu_telemetry_pkt_t* pkt)
 {
-  float data[3] = {r, p, y};
   size_t clients = 8; // Max clients to check
   int fds[8];
 
@@ -505,8 +504,8 @@ ws_broadcast_imu_update(float r, float p, float y)
       {
         httpd_ws_frame_t packet = 
         {
-          .payload = (uint8_t *)data,
-          .len = sizeof(data),
+          .payload = (uint8_t *)pkt,
+          .len = sizeof(imu_telemetry_pkt_t),
           .type = HTTPD_WS_TYPE_BINARY,
           .final = true
         };
