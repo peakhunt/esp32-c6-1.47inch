@@ -55,7 +55,7 @@ onMounted(() => {
     const projection = m4.perspective(45 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.1, 50)
     
     // Standard WebGL Camera (Looking at origin from behind/above)
-    const cameraPos = [0, 5, 15] 
+    const cameraPos = [0, 2.5, 13] 
     const target = [0, 0, 0]
     const up = [0, 1, 0] 
     const camera = m4.lookAt(cameraPos, target, up)
@@ -116,15 +116,98 @@ onMounted(() => {
   requestAnimationFrame(render)
 })
 
-const vs = `attribute vec4 position; uniform mat4 u_matrix; varying float v_y; void main() { gl_Position = u_matrix * position; v_y = position.y; }`;
-const fs = `precision mediump float; uniform vec4 u_color; uniform bool u_isBody; varying float v_y; void main() { if (u_isBody) { float highlight = (v_y > 0.0) ? 0.15 : 0.0; gl_FragColor = vec4(u_color.rgb + highlight, u_color.a); } else { gl_FragColor = u_color; } }`;
+const vs = `
+attribute vec4 position;
+uniform mat4 u_matrix;
+varying float v_y;
+void main() {
+  gl_Position = u_matrix * position; v_y = position.y;
+}
+`;
+
+const fs = `
+precision mediump float;
+uniform vec4 u_color;
+uniform bool u_isBody;
+varying float v_y;
+void main() {
+  if (u_isBody) {
+    float highlight = (v_y > 0.0) ? 0.15 : 0.0;
+    gl_FragColor = vec4(u_color.rgb + highlight, u_color.a);
+  } else {
+    gl_FragColor = u_color;
+  }
+}
+`;
 </script>
 
 <style scoped>
-.canvas-wrapper { position: relative; width: 100%; height: 400px; background: #fdfdfd; border-radius: 12px; overflow: hidden; }
-.hud-overlay { position: absolute; top: 15px; left: 15px; z-index: 10; background: rgba(255, 255, 255, 0.7); padding: 8px 12px; border-radius: 6px; font-family: monospace; border-left: 3px solid #485fc7; pointer-events: none; }
-.label-3d { position: absolute; top: 0; left: 0; z-index: 5; font-weight: 900; font-size: 1.1rem; pointer-events: none; text-shadow: 1px 1px 1px white; }
-.n-label { color: #ff0000; } .e-label { color: #0000ff; } .d-label { color: #008000; }
-.attitude-canvas { width: 100%; height: 100%; display: block; }
-.shadow-card { border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid #efefef; }
+.canvas-wrapper {
+  position: relative;
+  width: 100%; height:
+    400px; background:
+  #fdfdfd; border-radius:
+  12px;
+  overflow: hidden;
+}
+
+.hud-line {
+  font-size: 0.9rem;
+  font-weight: 900;
+  color: #333;
+  line-height: 1.2;
+}
+
+.hud-label {
+  color: #666;        /* Subtle gray so the value (black) pops more */
+  font-weight: 400;   /* Normal weight to contrast with the bold numbers */
+  margin-right: 4px;  /* Small gap before the degree value */
+  font-family: 'Courier New', monospace; /* "Flight Instrument" style */
+}
+
+.hud-overlay {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  border-left: 3px solid #485fc7;
+  pointer-events: none;
+}
+
+.label-3d {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  font-weight: 900;
+  font-size: 1.1rem;
+  pointer-events: none;
+  text-shadow: 1px 1px 1px white;
+}
+
+.n-label {
+  color: #ff0000;
+}
+.e-label {
+  color: #0000ff;
+}
+.d-label {
+  color: #008000;
+}
+
+.attitude-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.shadow-card {
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border: 1px solid #efefef;
+}
 </style>
