@@ -53,6 +53,19 @@ throttled_imu_data_send(void)
     pkt.roll        = _imu.data.orientation[0];
     pkt.pitch       = _imu.data.orientation[1];
     pkt.yaw         = _imu.data.orientation[2];
+
+    pkt.gx          = _imu.data.gyro[0];
+    pkt.gy          = _imu.data.gyro[1];
+    pkt.gz          = _imu.data.gyro[2];
+
+    pkt.ax          = _imu.data.accel[0];
+    pkt.ay          = _imu.data.accel[1];
+    pkt.az          = _imu.data.accel[2];
+
+    pkt.mx          = _imu.data.mag[0];
+    pkt.my          = _imu.data.mag[1];
+    pkt.mz          = _imu.data.mag[2];
+
     pkt.cpu_usage   = cpu_usage;
     pkt.sample_rate = _sample_rate;
     pkt.i2c_tx      = _mpu9250.num_transactions; 

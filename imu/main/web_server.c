@@ -410,6 +410,9 @@ default_get_handler(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
   }
 
+  httpd_resp_set_hdr(req, "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  httpd_resp_set_hdr(req, "Pragma", "no-cache");
+
   char *chunk = s_data->scratch;
   ssize_t read_bytes;
   do {

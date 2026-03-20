@@ -131,9 +131,15 @@ imu_apply_calibration(imu_t* imu)
 static void
 imu_apply_sensor_orientation(imu_t* imu)
 {
+#if 0
   alignReading(imu->adjusted.accel, imu->accel_align);
   alignReading(imu->adjusted.gyro, imu->gyro_align);
   alignReading(imu->adjusted.mag, imu->mag_align);
+#else
+  alignReading(imu->raw.accel, imu->accel_align);
+  alignReading(imu->raw.gyro, imu->gyro_align);
+  alignReading(imu->raw.mag, imu->mag_align);
+#endif
 }
 
 static void
@@ -143,16 +149,9 @@ imu_calc_sensor_value(imu_t* imu)
   imu->data.accel[1] = imu->adjusted.accel[1] * imu->lsb.accel_lsb;
   imu->data.accel[2] = imu->adjusted.accel[2] * imu->lsb.accel_lsb;
 
-#if 0 // Mahony/Madgwick AHRS converts degree to radian internally
-  imu->data.gyro[0] = imu->adjusted.gyro[0] * imu->lsb.gyro_lsb * (M_PI / 180.0f);  // to radians
-  imu->data.gyro[1] = imu->adjusted.gyro[1] * imu->lsb.gyro_lsb * (M_PI / 180.0f);
-  imu->data.gyro[2] = imu->adjusted.gyro[2] * imu->lsb.gyro_lsb * (M_PI / 180.0f);
-#else
-  imu->data.gyro[0] = imu->adjusted.gyro[0] * imu->lsb.gyro_lsb;  // to radians
+  imu->data.gyro[0] = imu->adjusted.gyro[0] * imu->lsb.gyro_lsb;
   imu->data.gyro[1] = imu->adjusted.gyro[1] * imu->lsb.gyro_lsb;
   imu->data.gyro[2] = imu->adjusted.gyro[2] * imu->lsb.gyro_lsb;
-#endif
-
 
   imu->data.mag[0] = imu->adjusted.mag[0] * imu->lsb.mag_lsb;
   imu->data.mag[1] = imu->adjusted.mag[1] * imu->lsb.mag_lsb;
@@ -164,10 +163,8 @@ imu_calc_sensor_value(imu_t* imu)
 static void
 imu_update_normal(imu_t* imu)
 {
-  imu_apply_calibration(imu);
-
   imu_apply_sensor_orientation(imu);
-
+  imu_apply_calibration(imu);
   imu_calc_sensor_value(imu);
 
 #if USE_MADGWICK == 1
