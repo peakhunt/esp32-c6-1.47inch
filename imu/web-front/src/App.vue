@@ -139,12 +139,18 @@ onMounted(() => {
         y: Math.sin(Date.now()/1000)*45,
         z: Math.sin(Date.now()/1000)*135
       }
-      const m = {
-        x: Math.sin(Date.now()/1000)*135,
-        y: Math.sin(Date.now()/1000)*490,
-        z: Math.sin(Date.now()/1000)*45
-      }
 
+      const t = Date.now() / 1000;
+      const radius = 50.0; // The Earth's field strength in uT
+
+      const phi = (t * 7.9) + Math.sin(t * 13.7) * 2.0;   // Chaotic Longitude
+      const theta = (t * 5.3) + Math.cos(t * 11.3) * 1.5; // Chaotic Latitude
+
+      const m = {
+        x: radius * Math.sin(theta) * Math.cos(phi),
+        y: radius * Math.sin(theta) * Math.sin(phi),
+        z: radius * Math.cos(theta)
+      };
 
       // Simulate vectors in dev mode
       handleIncomingData(r, p, y, g, a, m)
