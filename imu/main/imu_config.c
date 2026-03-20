@@ -1,0 +1,105 @@
+#include "freertos/FreeRTOS.h"
+#include "nvs_helper.h"
+#include "esp_log.h"
+#include "imu_config.h"
+
+#define NVS_MEMBER(struct_type, member, nvs_key, type, len) \
+    { nvs_key, type, offsetof(struct_type, member), len }
+
+#define IMU_SCHEMA_COUNT (sizeof(_schema) / sizeof(_schema[0]))
+
+static const char* TAG = "imu_config";
+static SemaphoreHandle_t _nvs_lock;
+
+//
+// schema definition
+//
+static nvs_helper_schema_def_t    _schema[] =
+{
+  NVS_MEMBER(imu_config_t, magic,               "magic",      NVS_TYPE_U32, 0),
+  NVS_MEMBER(imu_config_t, revision,            "rev",        NVS_TYPE_U16, 0),
+
+  NVS_MEMBER(imu_config_t, sensor.accel_off,    "acc_off",    NVS_TYPE_BLOB, 6),
+  NVS_MEMBER(imu_config_t, sensor.accel_scale,  "acc_scale",  NVS_TYPE_BLOB, 6),
+  NVS_MEMBER(imu_config_t, sensor.gyro_off,     "gyro_off",   NVS_TYPE_BLOB, 6),
+  NVS_MEMBER(imu_config_t, sensor.mag_bias,     "mag_bias",   NVS_TYPE_BLOB, 6),
+  NVS_MEMBER(imu_config_t, sensor.mag_dec,      "mag_dec",    NVS_TYPE_BLOB, 4),
+};
+
+//
+// default config
+//
+static const imu_config_t   _default_cfg = 
+{
+  .magic    = IMU_CONFIG_MAGIC,
+  .revision = IMU_CONFIG_REVISION,
+  .sensor = 
+  {
+    .accel_off =
+    {
+      0,
+      0,
+      0,
+    },
+    .accel_scale = 
+    {
+      4096,
+      4096,
+      4096,
+    },
+    .gyro_off = 
+    {
+      0,
+      0,
+      0,
+    },
+    .mag_bias = 
+    {
+      0,
+      0,
+      0,
+    },
+    .mag_dec = 0.0f,
+  },
+};
+
+//
+// live in memory config
+//
+static imu_config_t _live_cfg;
+
+void
+imu_config_init(void)
+{
+  _nvs_lock = xSemaphoreCreateMutex();
+  ESP_ERROR_CHECK(_nvs_lock ? ESP_OK : ESP_FAIL);
+
+  nvs_helper_init("nvs");    // this will crash if it fails
+
+  // basic sanity & upgrade check
+  // read magic and revision
+  if ((nvs_helper_read_item(&_schema[0], &_live_cfg) != ESP_OK ||
+      nvs_helper_read_item(&_schema[1], &_live_cfg) != ESP_OK) ||
+      _live_cfg.magic != IMU_CONFIG_MAGIC)
+  {
+    // invalid storage
+    ESP_LOGW(TAG, "invalid storage detected. resetting NVS storage");
+    ESP_ERROR_CHECK(nvs_helper_write_all(_schema, IMU_SCHEMA_COUNT, &_default_cfg));
+    memcpy(&_live_cfg, &_default_cfg, sizeof(imu_config_t));
+    ESP_LOGW(TAG, "resetting NVS storage complete");
+  }
+  else if (_live_cfg.revision != _default_cfg.revision)
+  {
+    // upgrade necessary
+    ESP_LOGW(TAG, "revision mismatch found. current %d, flash %d. upgrading", _default_cfg.revision, _live_cfg.revision);
+    ESP_ERROR_CHECK(nvs_helper_read_all_with_defaults(_schema, IMU_SCHEMA_COUNT, &_live_cfg, &_default_cfg));
+    _live_cfg.revision = _default_cfg.revision;
+    ESP_ERROR_CHECK(nvs_helper_write_item(&_schema[1], &_live_cfg));
+    ESP_LOGW(TAG, "upgrading complete");
+  } else {
+    ESP_LOGI(TAG, "reading system config");
+    ESP_ERROR_CHECK(nvs_helper_read_all(_schema, IMU_SCHEMA_COUNT, &_live_cfg));
+    ESP_LOGI(TAG, "reading system config complete");
+  }
+  ESP_LOGI(TAG, "config magic: %08x, revision: %d", _live_cfg.magic, _live_cfg.revision);
+}

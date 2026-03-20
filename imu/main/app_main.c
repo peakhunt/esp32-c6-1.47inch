@@ -22,6 +22,7 @@
 #include "wifi.h"
 #include "mount.h"
 #include "web_server.h"
+#include "imu_config.h"
 
 #define GPIO_INPUT_IO_9     9
 #define GPIO_INPUT_PIN_SEL  ((1ULL<<GPIO_INPUT_IO_9))
@@ -220,12 +221,7 @@ app_main(void)
   total_sram_in_KB = esp_get_free_internal_heap_size() / 1024;
   ESP_LOGI(TAG, "Free heap %dKB", total_sram_in_KB);
 
-  esp_err_t ret = nvs_flash_init();
-  if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-    ESP_ERROR_CHECK(nvs_flash_erase());
-    ret = nvs_flash_init();
-  }
-  ESP_ERROR_CHECK(ret);
+  imu_config_init();
 
   uint32_t  io_num;
   bool      key_pressed = false;

@@ -5,16 +5,18 @@ set(srcs "app_main.c"
          "imu_task.c"
          "wifi.c"
          "web_server.c"
-         "mount.c")
+         "mount.c"
+         "imu_config.c")
 
 set(includes ".")
 
 
 idf_component_register(SRCS ${srcs}
-                       REQUIRES imu esp_app_format esp_lcd
-                                    esp_driver_spi esp_driver_tsens
-                                    esp_wifi esp_eth esp-tls esp_netif esp_http_server nvs_flash
-                                    spiffs fatfs
+                       REQUIRES imu nvs_helper
+                                esp_app_format esp_lcd
+                                esp_driver_spi esp_driver_tsens
+                                esp_wifi esp_eth esp-tls esp_netif esp_http_server nvs_flash
+                                spiffs fatfs
                        INCLUDE_DIRS ${includes})
 
 # Define the source directory clearly
