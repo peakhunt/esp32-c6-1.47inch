@@ -24,6 +24,7 @@ set(WEB_DIST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../web-front/dist")
 
 # Force the SPIFFS image to wait for the npm build target
 # We remove the 'if(EXISTS)' because 'web_ui_build' will CREATE it
-spiffs_create_partition_image(storage ${WEB_DIST_DIR} 
-                              FLASH_IN_PROJECT 
-                              DEPENDS web_ui_build)
+spiffs_create_partition_image(storage ${WEB_DIST_DIR} FLASH_IN_PROJECT)
+
+add_dependencies(web_ui_build ${CMAKE_PROJECT_NAME}.elf)
+add_dependencies(spiffs_storage_bin web_ui_build)

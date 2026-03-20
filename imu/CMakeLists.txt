@@ -2,7 +2,7 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
-add_custom_target(web_ui_build ALL
+add_custom_target(web_ui_build
     COMMAND npm install && npm run build
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/web-front"
     COMMENT "Hardcore build: Installing dependencies and refreshing Vite dist..."
