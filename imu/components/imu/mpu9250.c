@@ -196,6 +196,12 @@ mpu9250_init(mpu9250_t* mpu9250,
   temp = (temp & 0xE7) | (uint8_t)gyro_sensitivity << 3;
   mpu9250_write_reg(mpu9250, MPU9250_GYRO_CONFIG, temp);
 
+  /* NEW: Enable DLPF for Gyro and Accel (20Hz Bandwidth) */
+  // Register 0x1A: bits [2:0] = 100 (0x04) sets 20Hz filter
+#if 0
+  mpu9250_write_reg(mpu9250, MPU9250_CONFIG, 0x04);
+#endif
+
   // enable bypass mode to access AK8963
   mpu9250_write_reg(mpu9250, 55, 0x02);
 

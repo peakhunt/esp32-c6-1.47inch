@@ -21,8 +21,8 @@
 #include "nvs_flash.h"
 #include "esp_eth.h"
 #include "esp_vfs.h"
-
 #include "web_server.h"
+#include "imu_task.h"
 
 #define WEB_SERVER_HTTP_QUERY_KEY_MAX_LEN  (64)
 
@@ -451,6 +451,63 @@ static httpd_uri_t common_get_uri = {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// Gyro Calibration
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void
+gyro_calibration_complete_response(void *arg)
+{
+  httpd_req_t *req = (httpd_req_t *)arg;
+  float offset[3];
+
+  imu_task_get_gyro_calibration( offset);
+
+  char resp_json[128];
+  snprintf(resp_json, sizeof(resp_json),
+      "{\"status\":\"success\",\"offsets\":{\"x\":%.4f,\"y\":%.4f,\"z\":%.4f}}",
+      offset[0], offset[1], offset[2]);
+
+  // 3. Set content type and send
+  httpd_resp_set_type(req, "application/json"); // Explicitly set as JSON
+  httpd_resp_send(req, resp_json, HTTPD_RESP_USE_STRLEN);
+
+  // 4. Finalize the async request
+  httpd_req_async_handler_complete(req);
+}
+
+static void
+on_gyro_calibration_complete_cb(void *arg)
+{
+  httpd_queue_work(_server, gyro_calibration_complete_response, arg);
+}
+
+
+static esp_err_t
+gyro_cal_post_handler(httpd_req_t *req)
+{
+  // 1. Create a copy of the request for asynchronous handling
+  httpd_req_t *async_req;
+  esp_err_t err = httpd_req_async_handler_begin(req, &async_req);
+  if (err != ESP_OK) return err;
+
+  imu_task_start_gyro_calibration(on_gyro_calibration_complete_cb, async_req);
+
+  // 3. Return ESP_OK immediately. This frees the server task
+  // so it can continue sending WebSocket frames.
+  return ESP_OK;
+}
+
+static const
+httpd_uri_t gyro_cal_uri =
+{
+  .uri       = "/api/calibrate/gyro",
+  .method    = HTTP_POST,
+  .handler   = gyro_cal_post_handler,
+  .user_ctx  = NULL
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // HTTP Web Socket Handler for Realtime IMU data
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -572,9 +629,9 @@ web_server_init(void)
   config.keep_alive_interval = 2;   // Interval between individual probes (Seconds)
   config.keep_alive_count = 3;      // How many failed probes before killing the socket
 
-  config.max_uri_handlers = 32;
-  config.max_open_sockets = 20;
-  config.lru_purge_enable = true;
+  config.max_uri_handlers   = 32;
+  config.max_open_sockets   = 20;
+  config.lru_purge_enable   = true;
   config.uri_match_fn = httpd_uri_match_wildcard;
 
   ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
@@ -589,6 +646,7 @@ web_server_init(void)
     httpd_register_uri_handler(_server, &ctrl);
     httpd_register_uri_handler(_server, &any);
     httpd_register_uri_handler(_server, &sse);
+    httpd_register_uri_handler(_server, &gyro_cal_uri);
     httpd_register_uri_handler(_server, &ws_imu_uri);
     httpd_register_uri_handler(_server, &common_get_uri);
   }

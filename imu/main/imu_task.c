@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "mpu9250.h"
 #include "imu.h"
+#include "imu_task.h"
 #include "web_server.h"
 
 static const char *TAG = "imu_task";
@@ -12,6 +13,12 @@ static imu_t                  _imu;
 static SemaphoreHandle_t      _mutex;
 
 volatile uint32_t             _sample_rate = 0;
+
+static int64_t                      _cal_start_time = 0;
+static const int64_t                CAL_DURATION_US = 60 * 1000000; // 60 seconds in microseconds
+static imu_task_calib_complete_cb   _calib_cb = NULL;
+static void*                        _calib_cb_arg = NULL;
+
 
 static inline void
 measure_sample_rate(void)
@@ -76,6 +83,35 @@ throttled_imu_data_send(void)
   }
 }
 
+static bool
+imu_task_handle_calibration_timer(void)
+{
+  int64_t current_time = esp_timer_get_time();
+  int64_t elapsed = current_time - _cal_start_time;
+
+  if(elapsed >= CAL_DURATION_US)
+  {
+    switch(_imu.mode)
+    {
+    case imu_mode_mag_calibrating:
+      break;
+    case imu_mode_gyro_calibrating:
+      imu_gyro_calibration_finish(&_imu);
+      ESP_LOGI(TAG, "finishing gyro calibration %ld %ld %ld",
+          _imu.cal.gyro_off[0],
+          _imu.cal.gyro_off[1],
+          _imu.cal.gyro_off[2]);
+      break;
+    case imu_mode_accel_calibrating:
+      break;
+    default:
+      break;
+    }
+    return true;
+  }
+  return false;
+}
+
 static void
 imu_task(void *arg)
 {
@@ -86,6 +122,10 @@ imu_task(void *arg)
 
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(2); // 2 ms → 500 Hz
+  bool shouldNotify = false;
+
+  imu_task_calib_complete_cb   calib_cb;
+  void*                        calib_cb_arg;
 
   while (1)
   {
@@ -93,7 +133,23 @@ imu_task(void *arg)
 
     xSemaphoreTake(_mutex, portMAX_DELAY);
     imu_update(&_imu);
+
+    if(_imu.mode !=imu_mode_normal)
+    {
+      if(imu_task_handle_calibration_timer() == true)
+      {
+        calib_cb      = _calib_cb;
+        calib_cb_arg  = _calib_cb_arg;
+        shouldNotify  = true;
+      }
+    }
     xSemaphoreGive(_mutex);
+
+    if(shouldNotify)
+    {
+      shouldNotify = false;
+      calib_cb(calib_cb_arg);
+    }
 
     measure_sample_rate();
 
@@ -125,5 +181,25 @@ imu_task_get_attitude(float* roll, float* pitch, float* yaw)
   *roll = _imu.data.orientation[0];
   *pitch = _imu.data.orientation[1];
   *yaw = _imu.data.orientation[2];
+  xSemaphoreGive(_mutex);
+}
+
+void
+imu_task_start_gyro_calibration(imu_task_calib_complete_cb cb, void* data)
+{
+  xSemaphoreTake(_mutex, portMAX_DELAY);
+  _calib_cb = cb;
+  _calib_cb_arg = data;
+  imu_gyro_calibration_start(&_imu);
+  _cal_start_time = esp_timer_get_time();
+  ESP_LOGI(TAG, "starting gyro calibration");
+  xSemaphoreGive(_mutex);
+}
+
+void
+imu_task_get_gyro_calibration(float offset[3])
+{
+  xSemaphoreTake(_mutex, portMAX_DELAY);
+  imu_gyro_get_calibration(&_imu, offset);
   xSemaphoreGive(_mutex);
 }

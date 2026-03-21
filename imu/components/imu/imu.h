@@ -85,12 +85,13 @@ typedef struct
 extern void imu_init(imu_t* imu, float hz);
 extern void imu_update(imu_t* imu);
 
+extern void imu_gyro_calibration_start(imu_t* imu);
+extern void imu_gyro_calibration_finish(imu_t* imu);
+extern void imu_gyro_get_calibration(imu_t* imu, float data[3]);
+
 #if 0
 extern void imu_mag_calibration_start(imu_t* imu);
 extern void imu_mag_calibration_finish(imu_t* imu);
-
-extern void imu_gyro_calibration_start(imu_t* imu);
-extern void imu_gyro_calibration_finish(imu_t* imu);
 
 extern void imu_accel_calibration_init(imu_t* imu);
 extern void imu_accel_calibration_step_start(imu_t* imu);

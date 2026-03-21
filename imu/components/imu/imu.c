@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include "imu.h"
+#include "gyro_calibration.h"
 
 #if 0
 #include "mag_calibration.h"
@@ -233,7 +234,6 @@ imu_update(imu_t* imu)
   switch(imu->mode)
   {
   case imu_mode_normal:
-    imu_update_normal(imu);
     break;
 
   case imu_mode_accel_calibrating:
@@ -241,13 +241,37 @@ imu_update(imu_t* imu)
     break;
 
   case imu_mode_gyro_calibrating:
-    //gyro_calibration_update(imu->raw.gyro[0], imu->raw.gyro[1], imu->raw.gyro[2]);
+    gyro_calibration_update(imu->raw.gyro[0], imu->raw.gyro[1], imu->raw.gyro[2]);
     break;
 
   case imu_mode_mag_calibrating:
     //mag_calibration_update(imu->raw.mag[0], imu->raw.mag[1], imu->raw.mag[2]);
     break;
   }
+  imu_update_normal(imu);
+}
+
+void
+imu_gyro_calibration_start(imu_t* imu)
+{
+  imu->mode = imu_mode_gyro_calibrating;
+  gyro_calibration_init();
+}
+
+void
+imu_gyro_calibration_finish(imu_t* imu)
+{
+  imu->mode = imu_mode_normal;
+  gyro_calibration_finish(imu->cal.gyro_off);
+  alignReading(imu->cal.gyro_off, imu->gyro_align);
+}
+
+void
+imu_gyro_get_calibration(imu_t* imu, float data[3])
+{
+  data[0] = imu->cal.gyro_off[0] * imu->lsb.gyro_lsb;
+  data[1] = imu->cal.gyro_off[1] * imu->lsb.gyro_lsb;
+  data[2] = imu->cal.gyro_off[2] * imu->lsb.gyro_lsb;
 }
 
 #if 0
@@ -263,20 +287,6 @@ imu_mag_calibration_finish(imu_t* imu)
 {
   imu->mode = imu_mode_normal;
   mag_calibration_finish(imu->cal.mag_bias);
-}
-
-void
-imu_gyro_calibration_start(imu_t* imu)
-{
-  imu->mode = imu_mode_gyro_calibrating;
-  gyro_calibration_init();
-}
-
-void
-imu_gyro_calibration_finish(imu_t* imu)
-{
-  imu->mode = imu_mode_normal;
-  gyro_calibration_finish(imu->cal.gyro_off);
 }
 
 void

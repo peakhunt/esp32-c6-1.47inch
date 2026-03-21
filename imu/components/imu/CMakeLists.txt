@@ -2,7 +2,9 @@ set(srcs "mahony.c"
          "madgwick.c"
          "mpu9250.c"
          "mpu9250_i2c.c"
-         "imu.c")
+         "imu.c"
+         "sensor_calib.c"
+         "gyro_calibration.c")
 
 set(includes ".")
 

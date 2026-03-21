@@ -15,6 +15,8 @@ const state = reactive({
   samplingRate: 0,
   i2cTransactions: 0,
   i2cFailed: 0,
+
+  isCalibrating: false,
   
   stats: {
     packetsReceived: 0,
@@ -49,11 +51,16 @@ const setConnected = (status) => {
   state.stats.connected = status
 }
 
+const setCalibrating = (status) => {
+  state.isCalibrating = status
+}
+
 export const useIMUStore = () => {
   return {
     state: readonly(state),
     updateIMU,
     updateSystemStats,
-    setConnected
+    setConnected,
+    setCalibrating
   }
 }

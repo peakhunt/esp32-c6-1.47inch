@@ -5,7 +5,10 @@
       <div class="is-flex is-align-items-center is-justify-content-space-between h-100">
         <!-- Menu Toggle -->
         <div class="header-side">
-          <a @click="showMenu = true" class="has-text-white is-flex">
+          <a class="has-text-white is-flex"
+             :class="{ 'is-disabled-click': imuStore.state.isCalibrating }"
+             @click="!imuStore.state.isCalibrating && (showMenu = true)"
+           >
             <Icon icon="mdi:menu" width="28" height="28" />
           </a>
         </div>
@@ -15,6 +18,11 @@
           <h1 class="title is-5 has-text-white m-0">
             {{ currentView === 'dashboard' ? 'IMU STATUS' : 'SENSOR CALIBRATION' }}
           </h1>
+        </div>
+
+        <div v-if="imuStore.state.isCalibrating" class="is-flex is-align-items-center ml-3">
+          <span class="loader is-loading mr-2" style="width: 12px; height: 12px;"></span>
+          <span class="is-size-7 has-text-warning has-text-weight-bold">HARDWARE BUSY</span>
         </div>
 
         <!-- Live Stats (Updated with your Tag Indicator) -->
