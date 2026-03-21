@@ -2,13 +2,18 @@
   <div class="calibration-view px-2">
     <div v-for="sensor in sensors" :key="sensor.id" class="card shadow-card mb-4 has-background-white">
       <div class="card-content p-3">
-        <p class="heading has-text-weight-bold has-text-grey-light mb-3">{{ sensor.label }} {{ sensor.unit}}</p>
+        <p class="heading has-text-weight-bold has-text-grey-light mb-3">{{ sensor.label }}({{ sensor.unit}})</p>
 
         <div class="columns is-mobile is-multiline is-vcentered is-variable is-1">
           <!-- DATA -->
-          <div class="column is-3-tablet is-6-mobile border-right-tablet">
-            <div v-for="axis in ['x','y','z']" :key="axis" class="is-flex is-justify-content-space-between mb-1 pr-2">
-              <span class="is-size-7 has-text-grey-light">{{ axis.toUpperCase() }}:</span>
+          <div class="column is-2-tablet is-6-mobile border-right-tablet">
+            <div v-for="axis in ['x','y','z']" :key="axis" class="is-flex mb-1 pr-2">
+              <span class="is-size-6"
+                    :style="{ 
+                      width: '30px', 
+                      color: { x: '#3246a3', y: '#cc002e', z: '#1ca318' }[axis] }">
+                {{ axis.toUpperCase() }}:
+              </span>
               <span class="is-family-monospace is-size-6 has-text-weight-bold">
                 {{ imuStore.state[sensor.id][axis].toFixed(sensor.prec) }}
               </span>
@@ -18,7 +23,7 @@
           <!-- VISUAL COLUMN -->
           <!-- In CalibrationView.vue -->
           <div class="column is-4-tablet is-6-mobile has-text-centered border-left-tablet">
-            <div v-if="sensor.id === 'mag'" class="mag-visual-wrapper">
+            <div v-if="sensor.id === 'mag'" class="mag-visual-wrapper" :style="{ '--wrapper-height': chart_height + 'px' }">
               <MagCloudView ref="magCloudRef" />
             </div>
             <div v-else class="visual-container">
@@ -28,11 +33,13 @@
 
 
           <!-- CHART -->
-          <div class="column is-5-tablet is-12-mobile mt-3-mobile">
-             <div class="chart-wrapper">
+          <div class="column is-6-tablet is-12-mobile mt-3-mobile">
+             <div class="chart-wrapper" :style="{ '--wrapper-height': chart_height + 'px' }">
                 <div :ref="el => setChartRef(el, sensor.id)" class="mini-uplot"></div>
              </div>
           </div>
+
+
         </div>
 
         <div class="mt-4">
@@ -53,7 +60,7 @@
 </template>
 
 <script setup>
-import { reactive, onMounted, onUnmounted, ref } from 'vue'
+import { reactive, onMounted, onUnmounted, ref, computed } from 'vue'
 import { useIMUStore } from '../store/imuStore'
 import MagCloudView from './MagCloudView.vue'
 import uPlot from 'uplot'
@@ -62,13 +69,22 @@ import 'uplot/dist/uPlot.min.css'
 const imuStore = useIMUStore()
 const magCloudRef = ref(null)
 const sensors = [
-  { id: 'accel', label: 'ACCELEROMETER', unit: 'm/s²', prec: 2 },
+  { id: 'accel', label: 'ACCELEROMETER', unit: 'g', prec: 2 },
   { id: 'gyro', label: 'GYROSCOPE', unit: '°/s', prec: 2 },
   { id: 'mag', label: 'MAGNETOMETER', unit: 'µT', prec: 1 }
 ]
 
 const calState = reactive({ accel: { '+X': false, '-X': false, '+Y': false, '-Y': false, '+Z': false, '-Z': false } })
-const max_data = 100
+const max_data = 500
+
+const windowWidth = ref(window.innerWidth);
+const updateWidth = () => {
+  windowWidth.value = window.innerWidth;
+};
+
+const chart_height = computed(() => {
+  return windowWidth.value < 769 ? 120 : 250; 
+});
 
 const chartElements = {}
 const chartInstances = {}
@@ -100,21 +116,24 @@ const updateCalibrationCharts = () => {
 defineExpose({ updateCalibrationCharts })
 
 onMounted(() => {
-  const opts = (cx, cy, cz) => ({
-    width: 0, height: 70, cursor: { show: false }, select: { show: false }, legend: { show: false },
+  window.addEventListener('resize', updateWidth);
+
+  const opts = (cx, cy, cz, unit) => ({
+    width: 0, height: chart_height.value, cursor: { show: false }, select: { show: false }, legend: { show: false },
     scales: { x: { time: false }, y: { range: (u, min, max) => [min - 0.5, max + 0.5] } },
-    axes: [ { show: false }, { show: false } ],
+    //axes: [ { show: false }, { show: false } ],
+    axes: [{ grid: { stroke: "#f0f0f0" } }, { grid: { stroke: "#f0f0f0" }, values: (u, vals) => vals.map(v => v + unit) }],
     series: [{}, { stroke: cx, width: 2 }, { stroke: cy, width: 2 }, { stroke: cz, width: 2 }],
   })
 
-  chartInstances.gyro = new uPlot(opts("#485fc7", "#ff3860", "#ffdd57"), chartData.gyro, chartElements.gyro)
-  chartInstances.accel = new uPlot(opts("#485fc7", "#ff3860", "#ffdd57"), chartData.accel, chartElements.accel)
-  chartInstances.mag = new uPlot(opts("#485fc7", "#ff3860", "#ffdd57"), chartData.mag, chartElements.mag)
+  chartInstances.gyro = new uPlot(opts("#ff0000", "#0000ff", "#00ff00", "°/s"), chartData.gyro, chartElements.gyro)
+  chartInstances.accel = new uPlot(opts("#ff0000", "#0000ff", "#00ff00", "g"), chartData.accel, chartElements.accel)
+  chartInstances.mag = new uPlot(opts("#ff0000", "#0000ff", "#00ff00", "µT"), chartData.mag, chartElements.mag)
 
   const ro = new ResizeObserver(entries => {
     for (let e of entries) {
       const id = Object.keys(chartElements).find(k => chartElements[k] === e.target)
-      if (id && chartInstances[id]) chartInstances[id].setSize({ width: e.contentRect.width, height: 70 })
+      if (id && chartInstances[id]) chartInstances[id].setSize({ width: e.contentRect.width, height: chart_height.value })
     }
   })
   Object.values(chartElements).forEach(el => ro.observe(el))
@@ -122,6 +141,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateWidth);
   chartInstances._observer?.disconnect()
   Object.values(chartInstances).forEach(i => i?.destroy?.())
 })
@@ -130,20 +150,80 @@ const runCal = (type, axis = null) => {
   if (type === 'mag' && magCloudRef.value) magCloudRef.value.reset()
   if (type === 'accel' && axis) calState.accel[axis] = true
 }
+
 </script>
 
 <style scoped>
-.mini-uplot { width: 100%; height: 70px; background: #fafafa; border-radius: 4px; }
+
+.chart-wrapper {
+  display: block;
+  width: 100%;
+  height: var(--wrapper-height, 250px);
+  position: relative;
+}
+
+.mini-uplot {
+  width: 100% !important;
+  height: 100% !important;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
 @media screen and (min-width: 769px) {
-  .border-right-tablet { border-right: 1px solid #eee; }
-  .border-left-tablet { border-left: 1px solid #eee; }
-  .mini-uplot { height: 90px; }
+  .border-right-tablet {
+    border-right: 1px solid #eee;
+  }
+  .border-left-tablet {
+    border-left: 1px solid #eee;
+  }
 }
+
 @media screen and (max-width: 768px) {
-  .mt-3-mobile { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #f5f5f5; }
+  .mt-3-mobile {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f5f5f5;
+  }
 }
-.is-family-monospace { font-family: 'Courier New', Courier, monospace; }
-.mock-gizmo { width: 30px; height: 30px; border: 2px dashed #00d1b2; margin: 0 auto; border-radius: 4px; }
-.shadow-card { border-radius: 12px; border: 1px solid #efefef; }
-.button.is-extra-small { font-size: 0.6rem; height: 1.8rem; padding: 0; }
+
+.is-family-monospace {
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.mock-gizmo {
+  width: 30px;
+  height: 30px;
+  border: 2px dashed #00d1b2;
+  margin: 0 auto;
+  border-radius: 4px;
+}
+
+.shadow-card {
+  border-radius: 12px;
+  border: 1px solid #efefef;
+}
+
+.button.is-extra-small {
+  font-size: 0.6rem;
+  height: 1.8rem;
+  padding: 0;
+}
+
+.mag-visual-wrapper {
+  position: relative;
+  /* Use the variable for BOTH to keep it a perfect square */
+  width: var(--wrapper-height, 250px); 
+  height: var(--wrapper-height, 250px);
+  margin: 0 auto; /* Center it horizontally in its column */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Ensure the visualizer fills the wrapper */
+.mag-visual-wrapper > * {
+  width: 100%;
+  height: 100%;
+}
 </style>

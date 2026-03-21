@@ -1,5 +1,5 @@
 <template>
-  <div class="mag-cloud-wrapper" @mousedown="startDrag">
+  <div class="mag-cloud-wrapper" @mousedown="startDrag" @touchstart.passive="startDrag">
     <canvas ref="glCanvas" class="gl-canvas"></canvas>
     <div class="points-count is-family-monospace">{{ count }} PTS</div>
   </div>
@@ -11,11 +11,11 @@ import * as twgl from 'twgl.js'
 
 const glCanvas = ref(null)
 const count = ref(0)
-const MAX_POINTS = 1500
+const MAX_POINTS = 800
 const points = new Float32Array(MAX_POINTS * 3)
 
 let gl, programInfo, bufferInfo, axisBufferInfo 
-let lon = 45, lat = 35, isDragging = false, lastX = 0, lastY = 0
+let lon = 45, lat = 45, isDragging = false, lastX = 0, lastY = 0
 
 const vs = `
   attribute vec3 position;
@@ -42,7 +42,7 @@ const render = () => {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   const aspect = gl.canvas.width / gl.canvas.height;
-  const projection = twgl.m4.perspective(35 * Math.PI / 180, aspect, 0.1, 100);
+  const projection = twgl.m4.perspective(45 * Math.PI / 180, aspect, 0.1, 100);
 
   // Spherical Coordinates for the Camera Eye
   const p = lon * Math.PI / 180;
@@ -69,14 +69,32 @@ const render = () => {
   gl.enableVertexAttribArray(cLoc);
 }
 
-const startDrag = (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; }
+const getPos = (e) => {
+  // Check if it's a touch event or a mouse event
+  if (e.touches && e.touches.length > 0) {
+    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  return { x: e.clientX, y: e.clientY };
+}
+
+const startDrag = (e) => { 
+  isDragging = true; 
+  const pos = getPos(e);
+  lastX = pos.x; 
+  lastY = pos.y; 
+}
+
 const doDrag = (e) => {
   if (!isDragging) return;
-  lon -= (e.clientX - lastX) * 0.4;
-  lat = Math.max(-85, Math.min(85, lat + (e.clientY - lastY) * 0.4));
-  lastX = e.clientX; lastY = e.clientY;
+  const pos = getPos(e);
+  
+  lon -= (pos.x - lastX) * 0.4;
+  lat = Math.max(-85, Math.min(85, lat + (pos.y - lastY) * 0.4));
+  lastX = pos.x; 
+  lastY = pos.y;
   render();
 }
+
 const stopDrag = () => { isDragging = false; }
 
 onMounted(() => {
@@ -84,20 +102,26 @@ onMounted(() => {
   programInfo = twgl.createProgramInfo(gl, [vs, fs]);
   const s = 2.0;
   axisBufferInfo = twgl.createBufferInfoFromArrays(gl, {
-    position: [0,0,0, s,0,0, 0,0,0, 0,s,0, 0,0,0, 0,0,s],
-    color: [1,0,0,1, 1,0,0,1, 0,1,0,1, 0,1,0,1, 0,0,1,1, 0,0,1,1]
+    position: [0,0,0, s,0,0, 0,0,0, 0,-s,0, 0,0,0, 0,0,-s],
+    color: [0,0,1,1, 0,0,1,1, 0,1,0,1, 0,1,0,1, 1,0,0,1, 1,0,0,1]
   });
   bufferInfo = twgl.createBufferInfoFromArrays(gl, {
     position: { numComponents: 3, data: points, drawType: gl.DYNAMIC_DRAW }
   });
+
   window.addEventListener('mousemove', doDrag);
   window.addEventListener('mouseup', stopDrag);
+  window.addEventListener('touchmove', doDrag, { passive: false });
+  window.addEventListener('touchend', stopDrag);
+
   render();
 })
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', doDrag);
   window.removeEventListener('mouseup', stopDrag);
+  window.removeEventListener('touchmove', doDrag);
+  window.removeEventListener('touchend', stopDrag);
 })
 
 defineExpose({ 
@@ -125,8 +149,35 @@ defineExpose({
 </script>
 
 <style scoped>
-.mag-cloud-wrapper { background: #080808; border-radius: 8px; position: relative; aspect-ratio: 1/1; cursor: grab; overflow: hidden; }
-.mag-cloud-wrapper:active { cursor: grabbing; }
-.gl-canvas { width: 100%; height: 100%; display: block; }
-.points-count { position: absolute; top: 4px; right: 8px; font-size: 0.6rem; color: #00d1b2; background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; pointer-events: none; }
+.mag-cloud-wrapper {
+  background: #080808;
+  border-radius: 8px;
+  position: relative;
+  aspect-ratio: 1/1;
+  cursor: grab;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.mag-cloud-wrapper:active {
+  cursor: grabbing;
+}
+
+.gl-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.points-count {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 0.6rem;
+  color: #00d1b2;
+  background: rgba(0,0,0,0.5);
+  padding: 2px 4px;
+  border-radius: 4px;
+  pointer-events: none;
+}
 </style>

@@ -103,7 +103,7 @@ defineExpose({ updateChart })
 onMounted(() => {
   uplotInstance = new uPlot({
     width: chartRef.value.offsetWidth, height: 250,
-    series: [{}, { stroke: "#485fc7", label: "Roll" }, { stroke: "#ff3860", label: "Pitch" }, { stroke: "#ffdd57", label: "Yaw" }],
+    series: [{}, { stroke: "#485fc7", label: "Roll" }, { stroke: "#ff3860", label: "Pitch" }, { stroke: "#2dff27", label: "Yaw" }],
     axes: [{ grid: { stroke: "#f0f0f0" } }, { grid: { stroke: "#f0f0f0" }, values: (u, vals) => vals.map(v => v + "°") }],
     cursor: { show: false }
   }, chartData, chartRef.value)
@@ -138,5 +138,16 @@ onUnmounted(() => {
 
 :deep(.uplot) { 
   margin: 0 auto; 
+}
+
+:deep(.u-legend .u-label) {
+  color: #2c3e50 !important; /* A deep, high-contrast grey */
+  font-weight: 600;         /* Slightly bolder for better readability */
+}
+
+/* Optional: Darkens the numerical values shown when hovering */
+:deep(.u-legend .u-value) {
+  color: #000000 !important;
+  font-weight: 700;
 }
 </style>

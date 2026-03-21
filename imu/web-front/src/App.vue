@@ -125,19 +125,21 @@ onMounted(() => {
   if (SIM_MODE) {
     setConnected(true)
     simTimer = setInterval(() => {
-      const r = Math.sin(Date.now()/1000)*45
-      const p = Math.cos(Date.now()/1000)*45
-      const y = (Date.now()/100)%360
+      const noise = () => (Math.random() - 0.5) * 0.3
+
+      const r = Math.sin(Date.now()/1000)*45 + noise()
+      const p = Math.cos(Date.now()/1000)*45 + noise()
+      const y = (Date.now()/100)%360 + noise()
 
       const g = {
-        x: Math.sin(Date.now()/1000)*45,
-        y: Math.sin(Date.now()/1000)*90,
-        z: Math.sin(Date.now()/1000)*135
+        x: Math.sin(Date.now()/1000)*45 + noise(),
+        y: Math.sin(Date.now()/1000)*90 + noise(),
+        z: Math.sin(Date.now()/1000)*135 + noise()
       }
       const a = {
-        x: Math.sin(Date.now()/1000)*90,
-        y: Math.sin(Date.now()/1000)*45,
-        z: Math.sin(Date.now()/1000)*135
+        x: Math.sin(Date.now() / 1000) * 16 * noise(),
+        y: Math.cos(Date.now() / 1200) * 16 * noise(),
+        z: Math.sin(Date.now() / 800)  * 16 * noise()
       }
 
       const t = Date.now() / 1000;
