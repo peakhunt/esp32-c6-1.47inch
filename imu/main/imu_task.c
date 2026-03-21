@@ -94,7 +94,16 @@ imu_task_handle_calibration_timer(void)
     switch(_imu.mode)
     {
     case imu_mode_mag_calibrating:
+      imu_mag_calibration_finish(&_imu);
+      ESP_LOGI(TAG, "finishing mag calibration %ld %ld %ld %ld %ld %ld",
+          _imu.cal.mag_bias[0],
+          _imu.cal.mag_bias[1],
+          _imu.cal.mag_bias[2],
+          _imu.cal.mag_scale[0],
+          _imu.cal.mag_scale[1],
+          _imu.cal.mag_scale[2]);
       break;
+
     case imu_mode_gyro_calibrating:
       imu_gyro_calibration_finish(&_imu);
       ESP_LOGI(TAG, "finishing gyro calibration %ld %ld %ld",
@@ -201,5 +210,35 @@ imu_task_get_gyro_calibration(float offset[3])
 {
   xSemaphoreTake(_mutex, portMAX_DELAY);
   imu_gyro_get_calibration(&_imu, offset);
+  xSemaphoreGive(_mutex);
+}
+
+void
+imu_task_start_mag_calibration(imu_task_calib_complete_cb cb, void* data)
+{
+  xSemaphoreTake(_mutex, portMAX_DELAY);
+  _calib_cb = cb;
+  _calib_cb_arg = data;
+  imu_mag_calibration_start(&_imu);
+  _cal_start_time = esp_timer_get_time();
+  ESP_LOGI(TAG, "starting mag calibration");
+  xSemaphoreGive(_mutex);
+}
+
+void
+imu_task_get_mag_calibration(float bias[3], float scale[3])
+{
+  xSemaphoreTake(_mutex, portMAX_DELAY);
+  
+  // 1. Hard Iron Bias (Raw LSBs)
+  bias[0] = (float)_imu.cal.mag_bias[0];
+  bias[1] = (float)_imu.cal.mag_bias[1];
+  bias[2] = (float)_imu.cal.mag_bias[2];
+
+  // 2. Soft Iron Scale (Convert 4096-base int to 1.0-base float)
+  scale[0] = (float)_imu.cal.mag_scale[0] / 4096.0f;
+  scale[1] = (float)_imu.cal.mag_scale[1] / 4096.0f;
+  scale[2] = (float)_imu.cal.mag_scale[2] / 4096.0f;
+  
   xSemaphoreGive(_mutex);
 }

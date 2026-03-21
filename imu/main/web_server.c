@@ -479,6 +479,7 @@ static void
 on_gyro_calibration_complete_cb(void *arg)
 {
   httpd_queue_work(_server, gyro_calibration_complete_response, arg);
+  //gyro_calibration_complete_response(arg);
 }
 
 
@@ -503,6 +504,62 @@ httpd_uri_t gyro_cal_uri =
   .uri       = "/api/calibrate/gyro",
   .method    = HTTP_POST,
   .handler   = gyro_cal_post_handler,
+  .user_ctx  = NULL
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// HTTP Web Socket Handler for Realtime IMU data
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+static void
+mag_calibration_complete_response(void *arg)
+{
+  httpd_req_t *req = (httpd_req_t *)arg;
+  float bias[3];
+  float scale[3];
+
+  // Fetch the raw or scaled results from your IMU task
+  imu_task_get_mag_calibration(bias, scale);
+
+  char resp_json[256];
+  snprintf(resp_json, sizeof(resp_json),
+      "{\"status\":\"success\","
+      "\"bias\":{\"x\":%.2f,\"y\":%.2f,\"z\":%.2f},"
+      "\"scale\":{\"x\":%.4f,\"y\":%.4f,\"z\":%.4f}}",
+      bias[0], bias[1], bias[2],
+      scale[0], scale[1], scale[2]);
+
+  httpd_resp_set_type(req, "application/json");
+  httpd_resp_send(req, resp_json, HTTPD_RESP_USE_STRLEN);
+  httpd_req_async_handler_complete(req);
+}
+
+static void
+on_mag_calibration_complete_cb(void *arg)
+{
+  httpd_queue_work(_server, mag_calibration_complete_response, arg);
+  //mag_calibration_complete_response(arg);
+}
+
+static esp_err_t
+mag_cal_post_handler(httpd_req_t *req)
+{
+  httpd_req_t *async_req;
+  esp_err_t err = httpd_req_async_handler_begin(req, &async_req);
+  if (err != ESP_OK) return err;
+
+  // Start the Magnetometer collection mode
+  imu_task_start_mag_calibration(on_mag_calibration_complete_cb, async_req);
+
+  return ESP_OK;
+}
+
+static const httpd_uri_t mag_cal_uri =
+{
+  .uri       = "/api/calibrate/mag",
+  .method    = HTTP_POST,
+  .handler   = mag_cal_post_handler,
   .user_ctx  = NULL
 };
 
@@ -647,6 +704,7 @@ web_server_init(void)
     httpd_register_uri_handler(_server, &any);
     httpd_register_uri_handler(_server, &sse);
     httpd_register_uri_handler(_server, &gyro_cal_uri);
+    httpd_register_uri_handler(_server, &mag_cal_uri);
     httpd_register_uri_handler(_server, &ws_imu_uri);
     httpd_register_uri_handler(_server, &common_get_uri);
   }

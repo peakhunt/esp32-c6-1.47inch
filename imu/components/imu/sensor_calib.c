@@ -144,19 +144,31 @@ sensorCalibration_SolveLGS(float A[4][4], float x[4], float b[4])
   sensorCalibration_BackwardSubstitution(A, x, y);
 }
 
+#include <string.h>
+
 void
 sensorCalibrationSolveForOffset(sensor_calib_t * state, float result[3])
 {
   float beta[4];
+  float XtX_copy[4][4]; // Temporary buffer for the solver
+  float XtY_copy[4];    // Temporary buffer for the solver
   int   i;
 
-  sensorCalibration_SolveLGS(state->XtX, beta, state->XtY);
+  // 1. CLONE the state into local memory
+  // This prevents the LU decomposition from corrupting our running sums
+  memcpy(XtX_copy, state->XtX, sizeof(XtX_copy));
+  memcpy(XtY_copy, state->XtY, sizeof(XtY_copy));
 
+  // 2. Solve the Linear Equation using the copy
+  sensorCalibration_SolveLGS(XtX_copy, beta, XtY_copy);
+
+  // 3. Extract the Hard-Iron offsets (Center of the sphere)
   for (i = 0; i < 3; i++)
   {
-    result[i] = beta[i] / 2;
+    result[i] = beta[i] / 2.0f;
   }
 }
+
 
 void
 sensorCalibrationSolveForScale(sensor_calib_t * state, float result[3])

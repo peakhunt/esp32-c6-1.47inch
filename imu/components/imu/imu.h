@@ -9,6 +9,7 @@
 
 #define USE_MADGWICK                  1
 #define IMU_STORE_UNCALIBRATED_DATA   0
+#define IMU_USE_MAG_CALIB_SOFT_IRON   1
 
 
 typedef enum
@@ -39,6 +40,9 @@ typedef struct
   int16_t   accel_scale[3];
   int16_t   gyro_off[3];
   int16_t   mag_bias[3];
+#if IMU_USE_MAG_CALIB_SOFT_IRON == 1
+  int16_t   mag_scale[3];
+#endif
   float     mag_declination;
 } imu_sensor_calib_data_t;
 
@@ -89,9 +93,10 @@ extern void imu_gyro_calibration_start(imu_t* imu);
 extern void imu_gyro_calibration_finish(imu_t* imu);
 extern void imu_gyro_get_calibration(imu_t* imu, float data[3]);
 
-#if 0
 extern void imu_mag_calibration_start(imu_t* imu);
 extern void imu_mag_calibration_finish(imu_t* imu);
+
+#if 0
 
 extern void imu_accel_calibration_init(imu_t* imu);
 extern void imu_accel_calibration_step_start(imu_t* imu);

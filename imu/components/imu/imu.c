@@ -3,10 +3,9 @@
 #include <math.h>
 #include "imu.h"
 #include "gyro_calibration.h"
+#include "mag_calibration.h"
 
 #if 0
-#include "mag_calibration.h"
-#include "gyro_calibration.h"
 #include "accel_calibration.h"
 #endif
 
@@ -122,9 +121,15 @@ imu_apply_calibration(imu_t* imu)
   imu->adjusted.gyro[1] = (imu->raw.gyro[1] - imu->cal.gyro_off[1]);
   imu->adjusted.gyro[2] = (imu->raw.gyro[2] - imu->cal.gyro_off[2]);
 
+#if IMU_USE_MAG_CALIB_SOFT_IRON == 0
   imu->adjusted.mag[0] = (imu->raw.mag[0] - imu->cal.mag_bias[0]);
   imu->adjusted.mag[1] = (imu->raw.mag[1] - imu->cal.mag_bias[1]);
   imu->adjusted.mag[2] = (imu->raw.mag[2] - imu->cal.mag_bias[2]);
+#else
+  imu->adjusted.mag[0] = (imu->raw.mag[0] - imu->cal.mag_bias[0]) * imu->cal.mag_scale[0] / 4096;
+  imu->adjusted.mag[1] = (imu->raw.mag[1] - imu->cal.mag_bias[1]) * imu->cal.mag_scale[1] / 4096;
+  imu->adjusted.mag[2] = (imu->raw.mag[2] - imu->cal.mag_bias[2]) * imu->cal.mag_scale[2] / 4096;
+#endif
 
   imu->adjusted.temp = imu->raw.temp;
 }
@@ -213,6 +218,10 @@ imu_init(imu_t* imu, float hz)
   imu->cal.accel_scale[1] = 
   imu->cal.accel_scale[2] = 4096;
 
+  imu->cal.mag_scale[0] = 
+  imu->cal.mag_scale[1] = 
+  imu->cal.mag_scale[2] = 4096;
+
   imu->accel_align  = imu_sensor_align_cw_90_flip;
   imu->gyro_align   = imu_sensor_align_cw_90_flip;
   imu->mag_align    = imu_sensor_align_cw_0;
@@ -245,7 +254,7 @@ imu_update(imu_t* imu)
     break;
 
   case imu_mode_mag_calibrating:
-    //mag_calibration_update(imu->raw.mag[0], imu->raw.mag[1], imu->raw.mag[2]);
+    mag_calibration_update(imu->raw.mag[0], imu->raw.mag[1], imu->raw.mag[2]);
     break;
   }
   imu_update_normal(imu);
@@ -274,7 +283,6 @@ imu_gyro_get_calibration(imu_t* imu, float data[3])
   data[2] = imu->cal.gyro_off[2] * imu->lsb.gyro_lsb;
 }
 
-#if 0
 void
 imu_mag_calibration_start(imu_t* imu)
 {
@@ -286,9 +294,17 @@ void
 imu_mag_calibration_finish(imu_t* imu)
 {
   imu->mode = imu_mode_normal;
+#if IMU_USE_MAG_CALIB_SOFT_IRON == 0
   mag_calibration_finish(imu->cal.mag_bias);
+  alignReading(imu->cal.mag_bias, imu->mag_align);
+#else
+  mag_calibration_finish_with_soft_iron(imu->cal.mag_bias, imu->cal.mag_scale);
+  alignReading(imu->cal.mag_bias, imu->mag_align);
+  alignReading(imu->cal.mag_scale, imu->mag_align);
+#endif
 }
 
+#if 0
 void
 imu_accel_calibration_init(imu_t* imu)
 {

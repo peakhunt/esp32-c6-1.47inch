@@ -10,5 +10,7 @@ extern void imu_task_get_attitude(float* roll, float* pitch, float* yaw);
 
 extern void imu_task_start_gyro_calibration(imu_task_calib_complete_cb cb, void* data);
 extern void imu_task_get_gyro_calibration(float offset[3]);
+extern void imu_task_start_mag_calibration(imu_task_calib_complete_cb cb, void* data);
+extern void imu_task_get_mag_calibration(float bias[3], float scale[3]);
 
 extern volatile uint32_t _sample_rate;

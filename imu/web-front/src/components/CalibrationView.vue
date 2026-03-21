@@ -107,8 +107,7 @@
         </div>
         <button class="button is-primary is-small is-fullwidth has-text-weight-bold mt-4" 
                 :disabled="imuStore.state.isCalibrating" 
-                @click="runCal('mag')"
-        >
+                @click="apiCalibrate('mag')">
           {{ imuStore.state.isCalibrating ? 'HARDWARE BUSY' : 'RESET CLOUD' }}
         </button>
 
