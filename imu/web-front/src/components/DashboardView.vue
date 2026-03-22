@@ -57,8 +57,8 @@ const getGauge = (type) => ({ ROLL: RollGauge, PITCH: PitchGauge, YAW: YawGauge 
 
 // CLEAN UPDATE LOGIC
 const updateChart = (r, p, y) => {
-  // 1. If tab is hidden, do nothing. No data updates, no drawing.
-  if (document.hidden || !chartInstance) return;
+  // we don't need this
+  //if (document.hidden || !chartInstance) return;
 
   const datasets = chartInstance.data.datasets;
   const values = [r, p, y];

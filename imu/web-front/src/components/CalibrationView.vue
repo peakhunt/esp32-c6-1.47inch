@@ -136,6 +136,9 @@ import { useIMUStore } from '../store/imuStore'
 import MagCloudView from './MagCloudView.vue'
 import GyroStillnessView from './GyroStillnessView.vue'
 import AccelCubeView from './AccelCubeView.vue'
+import { useDevice } from '../composables/useDevice.js'
+
+const { isMobile } = useDevice()
 
 // 1. Switch to Chart.js
 import { Chart, registerables } from 'chart.js'
@@ -173,8 +176,8 @@ let displayUpdateCounter = 0
 
 // 2. Updated Update Logic (The Surgical Fix)
 const updateCalibrationCharts = () => {
-  // THE SLOP-KILLER: If tab is hidden, don't update charts (prevents 0px compression)
-  if (document.hidden) return;
+  //  we don't need this
+  //if (document.hidden) return;
 
   ['gyro', 'accel', 'mag'].forEach(id => {
     const chart = chartInstances[id]
@@ -194,12 +197,18 @@ const updateCalibrationCharts = () => {
     chart.update('none')
   })
 
-  displayUpdateCounter++
-  if (displayUpdateCounter >= 10) {
-    displayState.accel = { ...imuStore.state.accel }
-    displayState.gyro = { ...imuStore.state.gyro }
-    displayState.mag = { ...imuStore.state.mag }
-    displayUpdateCounter = 0
+  if(isMobile.value) {
+      displayState.accel = { ...imuStore.state.accel }
+      displayState.gyro = { ...imuStore.state.gyro }
+      displayState.mag = { ...imuStore.state.mag }
+  } else {
+    displayUpdateCounter++
+    if (displayUpdateCounter >= 10) {
+      displayState.accel = { ...imuStore.state.accel }
+      displayState.gyro = { ...imuStore.state.gyro }
+      displayState.mag = { ...imuStore.state.mag }
+      displayUpdateCounter = 0
+    }
   }
 
   if (magCloudRef.value?.addPoint) {

@@ -109,6 +109,9 @@ import { Icon } from '@iconify/vue'
 import { useIMUStore } from './store/imuStore'
 import DashboardView from './components/DashboardView.vue'
 import CalibrationView from './components/CalibrationView.vue'
+import { useDevice } from './composables/useDevice.js'
+
+const { isMobile } = useDevice()
 
 const SIM_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 
@@ -160,12 +163,26 @@ const handleIncomingData = (r, p, y, g, a, m) => {
   }
 }
 
+// 2. State for throttling
+let lastPacketTime = 0;
+const MOBILE_THROTTLE_MS = 100; // 10Hz limit for mobile
+
 const connectWebSocket = () => {
   socket = new WebSocket(`ws://${window.location.hostname}/ws_imu`)
   socket.binaryType = "arraybuffer"
   socket.onopen = () => setConnected(true)
   
   socket.onmessage = (event) => {
+    // --- START MOBILE THROTTLE ---
+    if (isMobile.value) {
+      const now = performance.now();
+      if (now - lastPacketTime < MOBILE_THROTTLE_MS) {
+        return; // Drop packet immediately, save CPU/Battery
+      }
+      lastPacketTime = now;
+    }
+    // --- END MOBILE THROTTLE ---
+
     const v = new DataView(event.data)
     
     // 0-11: Fused Attitude (Floats)
