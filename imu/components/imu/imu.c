@@ -239,7 +239,16 @@ void
 imu_update(imu_t* imu)
 {
   // raw sensor data is already read in .raw
-
+  //
+  imu_update_normal(imu);
+  //
+  // XXX
+  // by above function call,
+  // ssensor inputs in raw are already algined in NED right hand rule axis convention
+  // so all the sensor calibration is done in NED right hand axis convention
+  // this can be quite confusing and lead to a big subtle bug 
+  // if you don't pay attention
+  //
   switch(imu->mode)
   {
   case imu_mode_normal:
@@ -257,7 +266,6 @@ imu_update(imu_t* imu)
     mag_calibration_update(imu->raw.mag[0], imu->raw.mag[1], imu->raw.mag[2]);
     break;
   }
-  imu_update_normal(imu);
 }
 
 void
@@ -272,7 +280,6 @@ imu_gyro_calibration_finish(imu_t* imu)
 {
   imu->mode = imu_mode_normal;
   gyro_calibration_finish(imu->cal.gyro_off);
-  alignReading(imu->cal.gyro_off, imu->gyro_align);
 }
 
 void
@@ -296,11 +303,8 @@ imu_mag_calibration_finish(imu_t* imu)
   imu->mode = imu_mode_normal;
 #if IMU_USE_MAG_CALIB_SOFT_IRON == 0
   mag_calibration_finish(imu->cal.mag_bias);
-  alignReading(imu->cal.mag_bias, imu->mag_align);
 #else
   mag_calibration_finish_with_soft_iron(imu->cal.mag_bias, imu->cal.mag_scale);
-  alignReading(imu->cal.mag_bias, imu->mag_align);
-  alignReading(imu->cal.mag_scale, imu->mag_align);
 #endif
 }
 
