@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useIMUStore } from '../store/imuStore'
 import { Chart, registerables } from 'chart.js'
 Chart.register(...registerables)
@@ -55,11 +55,11 @@ let chartInstance = null
 const max_points = 1000
 const getGauge = (type) => ({ ROLL: RollGauge, PITCH: PitchGauge, YAW: YawGauge }[type])
 
-// CLEAN UPDATE LOGIC
-const updateChart = (r, p, y) => {
-  // we don't need this
-  //if (document.hidden || !chartInstance) return;
+watch(() => state.roll, (newRoll) => {
+  updateChart(state.roll, state.pitch, state.yaw)
+})
 
+const updateChart = (r, p, y) => {
   const datasets = chartInstance.data.datasets;
   const values = [r, p, y];
 

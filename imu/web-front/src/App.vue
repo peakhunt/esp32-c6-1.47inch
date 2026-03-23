@@ -15,8 +15,12 @@
 
         <!-- Dynamic Title -->
         <div class="header-center">
-          <h1 class="title is-5 has-text-white m-0">
-            {{ currentView === 'dashboard' ? 'IMU STATUS' : 'SENSOR CALIBRATION' }}
+          <h1 class="title is-5 has-text-white m-0 uppercase tracking-wide">
+            {{ 
+              currentView === 'dashboard' ? 'IMU STATUS' : 
+              currentView === 'calibration' ? 'SENSOR CALIBRATION' : 
+              'SYSTEM SETTINGS' 
+            }}
           </h1>
         </div>
 
@@ -51,6 +55,7 @@
       <div class="container p-3">
         <DashboardView v-show="currentView === 'dashboard'" ref="dashboardRef" />
         <CalibrationView v-show="currentView === 'calibration'" ref="calibrationRef" />
+        <SettingsView v-show="currentView === 'settings'" />
       </div>
     </main>
 
@@ -91,9 +96,12 @@
         </div>
         <aside class="menu">
           <ul class="menu-list">
-            <li><a class="has-text-white" @click="setView('dashboard')">Dashboard</a></li>
-            <li><a class="has-text-white" @click="setView('calibration')">IMU Calibration</a></li>
+            <li><a :class="{'is-active': currentView === 'dashboard'}" @click="setView('dashboard')">Dashboard</a></li>
+            <li><a :class="{'is-active': currentView === 'calibration'}" @click="setView('calibration')">IMU Calibration</a></li>
+            <!-- ADD THIS -->
+            <li><a :class="{'is-active': currentView === 'settings'}" @click="setView('settings')">Settings & Performance</a></li>
           </ul>
+
         </aside>
       </div>
     </div>
@@ -109,6 +117,7 @@ import { Icon } from '@iconify/vue'
 import { useIMUStore } from './store/imuStore'
 import DashboardView from './components/DashboardView.vue'
 import CalibrationView from './components/CalibrationView.vue'
+import SettingsView from './components/SettingsView.vue'
 
 const SIM_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 
@@ -122,11 +131,10 @@ let socket = null
 let simTimer = null
 
 const imuStore = useIMUStore()
-const { updateIMU, updateSystemStats, setConnected } = imuStore
+const { updateIMU, updateSystemStats, setConnected, fetchSettings } = imuStore
 
 const elapsedSeconds = ref(0)
 let timerInterval = null
-
 
 watch(() => imuStore.state.isCalibrating, (isBusy) => {
   if (isBusy) {
@@ -136,8 +144,6 @@ watch(() => imuStore.state.isCalibrating, (isBusy) => {
     }, 1000)
   } else {
     clearInterval(timerInterval)
-    // Keep the final time visible for a second or just reset
-    // elapsedSeconds.value = 0 
   }
 })
 
@@ -147,17 +153,8 @@ const setView = (v) => {
 }
 
 const handleIncomingData = (r, p, y, g, a, m) => {
-  // Update Global Store (Source of Truth)
+  // Update Global Store (Throttled inside store)
   updateIMU(r, p, y, g, a, m)
-
-  // Update UI Chart/3D (If Dashboard is active)
-  if (dashboardRef.value) {
-    dashboardRef.value.updateChart(r, p, y)
-  }
-
-  if (calibrationRef.value) {
-    calibrationRef.value.updateCalibrationCharts()
-  }
 }
 
 let lastPacketTime = 0
@@ -177,33 +174,23 @@ const connectWebSocket = () => {
   socket.onmessage = (event) => {
     const now = performance.now()
 
-    // --- HARD PACKET DROP (Using Store Variable) ---
-    // If we're on mobile, this is 100ms. If we're on desktop, it's 0.
+    // --- HARD PACKET DROP ---
     if (imuStore.state.packetDropMs > 0 && (now - lastPacketTime < imuStore.state.packetDropMs)) {
-      return // CPU stops here. No parsing, no objects, no waste.
+      return 
     }
     lastPacketTime = now
 
-    // 1. Only parse if we didn't drop
     const v = new DataView(event.data)
+    const r = v.getFloat32(0, true), p = v.getFloat32(4, true), y = v.getFloat32(8, true)
     
-    // 2. Parse Fused Attitude
-    const r = v.getFloat32(0, true)
-    const p = v.getFloat32(4, true)
-    const y = v.getFloat32(8, true)
-    
-    // 3. Helper for vectors
     const readVec = (off) => ({ 
       x: v.getFloat32(off, true), 
       y: v.getFloat32(off + 4, true), 
       z: v.getFloat32(off + 8, true) 
     })
     
-    const g = readVec(12)
-    const a = readVec(24)
-    const m = readVec(36)
+    const g = readVec(12), a = readVec(24), m = readVec(36)
 
-    // 4. Update System Stats
     updateSystemStats(
       v.getInt32(48, true), 
       v.getInt32(52, true), 
@@ -211,46 +198,43 @@ const connectWebSocket = () => {
       v.getBigUint64(64, true)
     )
     
-    // 5. Final Pipe to Store & UI
     handleIncomingData(r, p, y, g, a, m)
   }
 }
 
 // 5. Lifecycle Hooks
-onMounted(() => {
+onMounted(async () => {
+  // Load System/Calibration settings from JSON API first
+  await fetchSettings()
+
   if (SIM_MODE) {
     setConnected(true)
     simTimer = setInterval(() => {
-      const noise = () => (Math.random() - 0.5) * 0.3
+      const now = performance.now()
+      // Guard simulation with same packet drop logic
+      if (imuStore.state.packetDropMs > 0 && (now - lastPacketTime < imuStore.state.packetDropMs)) return
+      lastPacketTime = now
 
-      const r = Math.sin(Date.now()/1000)*45 + noise()
-      const p = Math.cos(Date.now()/1000)*45 + noise()
+      const noise = () => (Math.random() - 0.5) * 0.3
+      const t = Date.now() / 1000
+      
+      const r = Math.sin(t)*45 + noise()
+      const p = Math.cos(t)*45 + noise()
       const y = (Date.now()/100)%360 + noise()
 
-      const g = {
-        x: Math.sin(Date.now()/1000)*45 + noise(),
-        y: Math.sin(Date.now()/1000)*90 + noise(),
-        z: Math.sin(Date.now()/1000)*135 + noise()
-      }
-      const a = {
-        x: Math.sin(Date.now() / 1000) * 16 * noise(),
-        y: Math.cos(Date.now() / 1200) * 16 * noise(),
-        z: Math.sin(Date.now() / 800)  * 16 * noise()
-      }
-
-      const t = Date.now() / 1000;
-      const radius = 50.0; // The Earth's field strength in uT
-
-      const phi = (t * 7.9) + Math.sin(t * 13.7) * 2.0;   // Chaotic Longitude
-      const theta = (t * 5.3) + Math.cos(t * 11.3) * 1.5; // Chaotic Latitude
+      const g = { x: Math.sin(t)*45, y: Math.sin(t)*90, z: Math.sin(t)*135 }
+      const a = { x: Math.sin(t)*16*noise(), y: Math.cos(t)*16*noise(), z: Math.sin(t)*16*noise() }
+      
+      const radius = 50.0
+      const phi = (t * 7.9) + Math.sin(t * 13.7) * 2.0
+      const theta = (t * 5.3) + Math.cos(t * 11.3) * 1.5
 
       const m = {
         x: radius * Math.sin(theta) * Math.cos(phi),
         y: radius * Math.sin(theta) * Math.sin(phi),
         z: radius * Math.cos(theta)
-      };
+      }
 
-      // Simulate vectors in dev mode
       handleIncomingData(r, p, y, g, a, m)
     }, 20)
   } else {
@@ -264,7 +248,6 @@ onUnmounted(() => {
   if (simTimer) clearInterval(simTimer)
 })
 </script>
-
 
 <style scoped>
 /* Sidebar Shell */

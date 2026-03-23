@@ -125,12 +125,72 @@
       </div>
     </div>
 
+    <!-- SYSTEM CALIBRATION SETTINGS SECTION -->
+    <div class="card shadow-card mb-4 has-background-white">
+      <div class="card-content p-3">
+        <div class="is-flex is-justify-content-between is-align-items-center mb-2">
+          <p class="heading has-text-weight-bold has-text-grey-light mb-0">ACTIVE HARDWARE PARAMETERS (%.3f)</p>
+          <button class="button is-ghost is-small p-0 h-auto"
+                  @click="imuStore.fetchSettings()"
+                  style="min-height: unset; border: none; background: none;">
+            <Icon :icon="refreshIcon" class="mr-1" style="font-size: 1rem; color: #b5b5b5;" />
+            <span class="is-size-7 has-text-grey">RELOAD</span>
+          </button>
+        </div>
+
+        <div class="columns is-mobile is-multiline is-variable is-1">
+          <!-- Accel Row -->
+          <div class="column is-6-mobile is-4-tablet py-1">
+            <p class="is-size-7 has-text-grey-light">ACCEL OFF</p>
+            <div class="is-family-monospace is-size-7 has-text-weight-bold">
+              [{{ imuStore.state.settings.calibration.accel_off.map(v => v.toFixed(3)).join(', ') }}]
+            </div>
+          </div>
+          <div class="column is-6-mobile is-4-tablet py-1">
+            <p class="is-size-7 has-text-grey-light">ACCEL SCALE</p>
+            <div class="is-family-monospace is-size-7 has-text-weight-bold">
+              [{{ imuStore.state.settings.calibration.accel_scale.map(v => v.toFixed(3)).join(', ') }}]
+            </div>
+          </div>
+
+          <!-- Gyro/Mag Row -->
+          <div class="column is-6-mobile is-4-tablet py-1">
+            <p class="is-size-7 has-text-grey-light">GYRO OFF</p>
+            <div class="is-family-monospace is-size-7 has-text-weight-bold">
+              [{{ imuStore.state.settings.calibration.gyro_off.map(v => v.toFixed(3)).join(', ') }}]
+            </div>
+          </div>
+          <div class="column is-6-mobile is-4-tablet py-1">
+            <p class="is-size-7 has-text-grey-light">MAG BIAS</p>
+            <div class="is-family-monospace is-size-7 has-text-weight-bold">
+              [{{ imuStore.state.settings.calibration.mag_bias.map(v => v.toFixed(3)).join(', ') }}]
+            </div>
+          </div>
+          <div class="column is-6-mobile is-4-tablet py-1">
+            <p class="is-size-7 has-text-grey-light">MAG SCALE</p>
+            <div class="is-family-monospace is-size-7 has-text-weight-bold">
+              [{{ imuStore.state.settings.calibration.mag_scale.map(v => v.toFixed(3)).join(', ') }}]
+            </div>
+          </div>
+
+          <!-- Declination -->
+          <div class="column is-6-mobile is-4-tablet py-1">
+            <p class="is-size-7 has-text-grey-light">DECLINATION</p>
+            <div class="is-family-monospace is-size-6 has-text-weight-bold has-text-success">
+              {{ imuStore.state.settings.calibration.mag_declination.toFixed(3) }}°
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
 import { Icon } from '@iconify/vue'
 import trashCanOutline from '@iconify-icons/mdi/trash-can-outline'
+import refreshIcon from '@iconify-icons/mdi/refresh'
 import { reactive, onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useIMUStore } from '../store/imuStore'
 import MagCloudView from './MagCloudView.vue'
@@ -162,11 +222,12 @@ const currentTarget = ref('+Z')
 const completedSides = ref([])
 const chartInstances = {}
 
+watch(() => imuStore.state.gyro, (newGyro) => {
+  updateCalibrationCharts()
+})
+
 // 2. Updated Update Logic (The Surgical Fix)
 const updateCalibrationCharts = () => {
-  //  we don't need this
-  //if (document.hidden) return;
-
   ['gyro', 'accel', 'mag'].forEach(id => {
     const chart = chartInstances[id]
     const sensor = imuStore.state[id]

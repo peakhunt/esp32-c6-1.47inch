@@ -350,7 +350,7 @@ imu_accel_get_calibration(imu_t* imu, float off[3], float scale[3])
   off[1] = imu->cal.accel_off[1] * imu->lsb.accel_lsb;
   off[2] = imu->cal.accel_off[2] * imu->lsb.accel_lsb;
 
-  scale[0] = imu->cal.accel_scale[0] * 4096;
-  scale[1] = imu->cal.accel_scale[1] * 4096;
-  scale[2] = imu->cal.accel_scale[2] * 4096;
+  scale[0] = imu->cal.accel_scale[0] / 4096.0f;
+  scale[1] = imu->cal.accel_scale[1] / 4096.0f;
+  scale[2] = imu->cal.accel_scale[2] / 4096.0f;
 }

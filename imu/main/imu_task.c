@@ -322,3 +322,13 @@ imu_task_get_accel_calibration(float offset[3], float scale[3])
   
   xSemaphoreGive(_mutex);
 }
+
+void
+imu_task_get_mag_dec(float* dec)
+{
+  xSemaphoreTake(_mutex, portMAX_DELAY);
+  
+  *dec = _imu.cal.mag_declination;
+  
+  xSemaphoreGive(_mutex);
+}
