@@ -109,9 +109,6 @@ import { Icon } from '@iconify/vue'
 import { useIMUStore } from './store/imuStore'
 import DashboardView from './components/DashboardView.vue'
 import CalibrationView from './components/CalibrationView.vue'
-import { useDevice } from './composables/useDevice.js'
-
-const { isMobile } = useDevice()
 
 const SIM_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 
@@ -164,7 +161,6 @@ const handleIncomingData = (r, p, y, g, a, m) => {
 }
 
 let lastPacketTime = 0
-const MOBILE_THROTTLE_MS = 100 // 10Hz limit for mobile
 
 const connectWebSocket = () => {
   const wsUrl = `ws://${window.location.hostname}/ws_imu`
@@ -181,24 +177,33 @@ const connectWebSocket = () => {
   socket.onmessage = (event) => {
     const now = performance.now()
 
-    // 1. Immediate Throttle Exit (Early Return)
-    if (isMobile.value && (now - lastPacketTime < MOBILE_THROTTLE_MS)) return
+    // --- HARD PACKET DROP (Using Store Variable) ---
+    // If we're on mobile, this is 100ms. If we're on desktop, it's 0.
+    if (imuStore.state.packetDropMs > 0 && (now - lastPacketTime < imuStore.state.packetDropMs)) {
+      return // CPU stops here. No parsing, no objects, no waste.
+    }
     lastPacketTime = now
 
+    // 1. Only parse if we didn't drop
     const v = new DataView(event.data)
     
-    // 2. Parse Fused Attitude (0-11)
+    // 2. Parse Fused Attitude
     const r = v.getFloat32(0, true)
     const p = v.getFloat32(4, true)
     const y = v.getFloat32(8, true)
     
-    // 3. Parse Sensor Vectors (12-47)
-    const readVec = (off) => ({ x: v.getFloat32(off, true), y: v.getFloat32(off + 4, true), z: v.getFloat32(off + 8, true) })
+    // 3. Helper for vectors
+    const readVec = (off) => ({ 
+      x: v.getFloat32(off, true), 
+      y: v.getFloat32(off + 4, true), 
+      z: v.getFloat32(off + 8, true) 
+    })
+    
     const g = readVec(12)
     const a = readVec(24)
     const m = readVec(36)
 
-    // 4. Update System Stats (48-71)
+    // 4. Update System Stats
     updateSystemStats(
       v.getInt32(48, true), 
       v.getInt32(52, true), 
@@ -206,7 +211,7 @@ const connectWebSocket = () => {
       v.getBigUint64(64, true)
     )
     
-    // 5. Final Pipe to UI
+    // 5. Final Pipe to Store & UI
     handleIncomingData(r, p, y, g, a, m)
   }
 }

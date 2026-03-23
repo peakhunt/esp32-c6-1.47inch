@@ -9,7 +9,7 @@
           <div class="column is-2-tablet is-6-mobile border-right-tablet">
             <div v-for="axis in ['x','y','z']" :key="axis" class="is-flex mb-1 pr-2">
               <span class="is-size-6" :style="{ width: '30px', color: getAxisColor(axis) }">{{ axis.toUpperCase() }}:</span>
-              <span class="is-family-monospace is-size-6 has-text-weight-bold">{{ displayState.accel[axis].toFixed(2) }}</span>
+              <span class="is-family-monospace is-size-6 has-text-weight-bold">{{ imuStore.state.accel[axis].toFixed(2) }}</span>
             </div>
           </div>
           <div class="column is-4-tablet is-6-mobile has-text-centered border-left-tablet">
@@ -71,7 +71,7 @@
           <div class="column is-2-tablet is-6-mobile border-right-tablet">
             <div v-for="axis in ['x','y','z']" :key="axis" class="is-flex mb-1 pr-2">
               <span class="is-size-6" :style="{ width: '30px', color: getAxisColor(axis) }">{{ axis.toUpperCase() }}:</span>
-              <span class="is-family-monospace is-size-6 has-text-weight-bold">{{ displayState.gyro[axis].toFixed(2) }}</span>
+              <span class="is-family-monospace is-size-6 has-text-weight-bold">{{ imuStore.state.gyro[axis].toFixed(2) }}</span>
             </div>
           </div>
           <div class="column is-4-tablet is-6-mobile has-text-centered border-left-tablet">
@@ -102,7 +102,7 @@
           <div class="column is-2-tablet is-6-mobile border-right-tablet">
             <div v-for="axis in ['x','y','z']" :key="axis" class="is-flex mb-1 pr-2">
               <span class="is-size-6" :style="{ width: '30px', color: getAxisColor(axis) }">{{ axis.toUpperCase() }}:</span>
-              <span class="is-family-monospace is-size-6 has-text-weight-bold">{{ displayState.mag[axis].toFixed(1) }}</span>
+              <span class="is-family-monospace is-size-6 has-text-weight-bold">{{ imuStore.state.mag[axis].toFixed(1) }}</span>
             </div>
           </div>
           <div class="column is-4-tablet is-6-mobile has-text-centered border-left-tablet">
@@ -136,9 +136,6 @@ import { useIMUStore } from '../store/imuStore'
 import MagCloudView from './MagCloudView.vue'
 import GyroStillnessView from './GyroStillnessView.vue'
 import AccelCubeView from './AccelCubeView.vue'
-import { useDevice } from '../composables/useDevice.js'
-
-const { isMobile } = useDevice()
 
 // 1. Switch to Chart.js
 import { Chart, registerables } from 'chart.js'
@@ -165,15 +162,6 @@ const currentTarget = ref('+Z')
 const completedSides = ref([])
 const chartInstances = {}
 
-// Add this near your other reactive states
-const displayState = reactive({
-  accel: { x: 0, y: 0, z: 0 },
-  gyro: { x: 0, y: 0, z: 0 },
-  mag: { x: 0, y: 0, z: 0 }
-})
-
-let displayUpdateCounter = 0
-
 // 2. Updated Update Logic (The Surgical Fix)
 const updateCalibrationCharts = () => {
   //  we don't need this
@@ -196,20 +184,6 @@ const updateCalibrationCharts = () => {
     // 'none' mode is critical for 50Hz performance
     chart.update('none')
   })
-
-  if(isMobile.value) {
-      displayState.accel = { ...imuStore.state.accel }
-      displayState.gyro = { ...imuStore.state.gyro }
-      displayState.mag = { ...imuStore.state.mag }
-  } else {
-    displayUpdateCounter++
-    if (displayUpdateCounter >= 10) {
-      displayState.accel = { ...imuStore.state.accel }
-      displayState.gyro = { ...imuStore.state.gyro }
-      displayState.mag = { ...imuStore.state.mag }
-      displayUpdateCounter = 0
-    }
-  }
 
   if (magCloudRef.value?.addPoint) {
     magCloudRef.value.addPoint(imuStore.state.mag.x, imuStore.state.mag.y, imuStore.state.mag.z)
