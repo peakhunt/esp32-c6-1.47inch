@@ -163,49 +163,51 @@ const handleIncomingData = (r, p, y, g, a, m) => {
   }
 }
 
-// 2. State for throttling
-let lastPacketTime = 0;
-const MOBILE_THROTTLE_MS = 100; // 10Hz limit for mobile
+let lastPacketTime = 0
+const MOBILE_THROTTLE_MS = 100 // 10Hz limit for mobile
 
 const connectWebSocket = () => {
-  socket = new WebSocket(`ws://${window.location.hostname}/ws_imu`)
+  const wsUrl = `ws://${window.location.hostname}/ws_imu`
+  socket = new WebSocket(wsUrl)
   socket.binaryType = "arraybuffer"
-  socket.onopen = () => setConnected(true)
   
+  socket.onopen = () => setConnected(true)
+  socket.onclose = () => {
+    setConnected(false)
+    socket = null
+    if (!SIM_MODE) setTimeout(connectWebSocket, 2000)
+  }
+
   socket.onmessage = (event) => {
-    // --- START MOBILE THROTTLE ---
-    if (isMobile.value) {
-      const now = performance.now();
-      if (now - lastPacketTime < MOBILE_THROTTLE_MS) {
-        return; // Drop packet immediately, save CPU/Battery
-      }
-      lastPacketTime = now;
-    }
-    // --- END MOBILE THROTTLE ---
+    const now = performance.now()
+
+    // 1. Immediate Throttle Exit (Early Return)
+    if (isMobile.value && (now - lastPacketTime < MOBILE_THROTTLE_MS)) return
+    lastPacketTime = now
 
     const v = new DataView(event.data)
     
-    // 0-11: Fused Attitude (Floats)
-    const r = v.getFloat32(0, true), p = v.getFloat32(4, true), y = v.getFloat32(8, true)
+    // 2. Parse Fused Attitude (0-11)
+    const r = v.getFloat32(0, true)
+    const p = v.getFloat32(4, true)
+    const y = v.getFloat32(8, true)
     
-    // 12-47: Sensor Vectors (3x3 Floats = 36 bytes)
-    const g = { x: v.getFloat32(12, true), y: v.getFloat32(16, true), z: v.getFloat32(20, true) }
-    const a = { x: v.getFloat32(24, true), y: v.getFloat32(28, true), z: v.getFloat32(32, true) }
-    const m = { x: v.getFloat32(36, true), y: v.getFloat32(40, true), z: v.getFloat32(44, true) }
+    // 3. Parse Sensor Vectors (12-47)
+    const readVec = (off) => ({ x: v.getFloat32(off, true), y: v.getFloat32(off + 4, true), z: v.getFloat32(off + 8, true) })
+    const g = readVec(12)
+    const a = readVec(24)
+    const m = readVec(36)
 
-    // 48-71: System Performance & Hardware Health (Shifted)
+    // 4. Update System Stats (48-71)
     updateSystemStats(
-      v.getInt32(48, true), v.getInt32(52, true), 
-      v.getBigUint64(56, true), v.getBigUint64(64, true)
+      v.getInt32(48, true), 
+      v.getInt32(52, true), 
+      v.getBigUint64(56, true), 
+      v.getBigUint64(64, true)
     )
     
-    // Push through the single pipe
+    // 5. Final Pipe to UI
     handleIncomingData(r, p, y, g, a, m)
-  }
-
-  socket.onclose = () => {
-    setConnected(false); socket = null
-    if (!SIM_MODE) setTimeout(connectWebSocket, 2000)
   }
 }
 
