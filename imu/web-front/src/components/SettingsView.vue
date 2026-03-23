@@ -102,7 +102,7 @@
     </div>
 
     <!-- 3. WIFI (LOCAL DRAFT) -->
-    <div class="column is-12 mt-5 p-0">
+    <div class="column is-12 mt-5 p-0" v-memo="[localData.wifi.sta_enabled, localData.wifi.channel, localData.wifi.ap_ssid, localData.wifi.sta_ssid]">
       <div class="card shadow-card has-background-white">
         <div class="card-content px-5 py-5">
           <p class="heading has-text-weight-bold has-text-black mb-5">WIFI INTERFACES</p>
@@ -140,7 +140,7 @@
                 <label class="label is-size-7 has-text-grey-light uppercase">Channel</label>
                 <div class="select is-small is-fullwidth">
                   <select v-model.number="localData.wifi.channel" class="is-family-monospace">
-                    <option v-for="n in 13" :key="n" :value="n">CH {{ n }}</option>
+                    <option v-for="n in channels" :key="n" :value="n">CH {{ n }}</option>
                   </select>
                 </div>
               </div>
@@ -189,6 +189,8 @@ import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline'
 import contentSaveOutline from '@iconify-icons/mdi/content-save-outline'
 import tuneIcon from '@iconify-icons/mdi/tune-vertical'
 import autoFixIcon from '@iconify-icons/mdi/auto-fix'
+
+const channels = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
 const imuStore = useIMUStore()
 const { state } = imuStore
