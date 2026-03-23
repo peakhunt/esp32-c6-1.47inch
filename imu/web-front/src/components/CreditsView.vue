@@ -21,7 +21,10 @@
             </div>
             
             <div class="is-size-6 has-text-grey-dark pt-6 border-top-thin">
-              <p class="mb-3">Project Lead — <span class="has-text-weight-bold has-text-black">Huckleberry K.</span></p>
+              <p class="mb-1">Project Lead — <span class="has-text-weight-bold has-text-black">Huckleberry K.</span></p>
+              <!-- Added Email Address -->
+              <p class="is-family-monospace is-size-7 has-text-grey mb-4">hawk.kim1974@gmail.com</p>
+              
               <p class="mb-3">Special thanks to the <span class="has-text-weight-bold has-text-black">Espressif ESP-IDF Team</span></p>
               <p>Many thanks to <span class="has-text-weight-bold has-text-black">brilliant Open Source Developers</span></p>
             </div>
