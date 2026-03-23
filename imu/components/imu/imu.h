@@ -14,6 +14,12 @@
 
 typedef enum
 {
+  IMU_AHRS_MODE_MAHONY = 0,
+  IMU_AHRS_MODE_MADGWICK = 1
+} imu_ahrs_mode_t;
+
+typedef enum
+{
   imu_mode_normal,
   imu_mode_accel_calibrating,
   imu_mode_gyro_calibrating,

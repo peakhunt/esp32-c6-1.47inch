@@ -16,14 +16,32 @@ static SemaphoreHandle_t _nvs_lock;
 //
 static nvs_helper_schema_def_t    _schema[] =
 {
-  NVS_MEMBER(imu_config_t, magic,                   "magic",      NVS_TYPE_U32, 0),
-  NVS_MEMBER(imu_config_t, revision,                "rev",        NVS_TYPE_U16, 0),
+  NVS_MEMBER(imu_config_t, magic,                   "magic",      NVS_TYPE_U32,  0),
+  NVS_MEMBER(imu_config_t, revision,                "rev",        NVS_TYPE_U16,  0),
+  
+  // --- SENSOR CALIBRATION ---
   NVS_MEMBER(imu_config_t, sensor.accel_off,        "acc_off",    NVS_TYPE_BLOB, 6),
   NVS_MEMBER(imu_config_t, sensor.accel_scale,      "acc_scale",  NVS_TYPE_BLOB, 6),
   NVS_MEMBER(imu_config_t, sensor.gyro_off,         "gyro_off",   NVS_TYPE_BLOB, 6),
   NVS_MEMBER(imu_config_t, sensor.mag_bias,         "mag_bias",   NVS_TYPE_BLOB, 6),
   NVS_MEMBER(imu_config_t, sensor.mag_scale,        "mag_scale",  NVS_TYPE_BLOB, 6),
   NVS_MEMBER(imu_config_t, sensor.mag_declination,  "mag_dec",    NVS_TYPE_BLOB, 4),
+
+  // --- IMU ENGINE ---
+  NVS_MEMBER(imu_config_t, engine.ahrs_mode,        "imu_mode",   NVS_TYPE_U8,   0),
+  NVS_MEMBER(imu_config_t, engine.madgwick_beta,    "imu_beta",   NVS_TYPE_BLOB, 4),
+  NVS_MEMBER(imu_config_t, engine.mahony_kp,        "imu_kp",     NVS_TYPE_BLOB, 4),
+  NVS_MEMBER(imu_config_t, engine.mahony_ki,        "imu_ki",     NVS_TYPE_BLOB, 4),
+
+  // --- WIFI CONFIG ---
+  NVS_MEMBER(imu_config_t, wifi.sta_enabled,        "sta_en",     NVS_TYPE_U8,   0),
+  NVS_MEMBER(imu_config_t, wifi.sta_ssid,           "sta_ssid",   NVS_TYPE_STR,  32),
+  NVS_MEMBER(imu_config_t, wifi.sta_password,       "sta_pw",     NVS_TYPE_STR,  64),
+  NVS_MEMBER(imu_config_t, wifi.ap_ssid,            "ap_ssid",    NVS_TYPE_STR,  32),
+  NVS_MEMBER(imu_config_t, wifi.ap_password,        "ap_pw",      NVS_TYPE_STR,  64),
+  NVS_MEMBER(imu_config_t, wifi.ap_ip,              "ap_ip",      NVS_TYPE_STR,  16),
+  NVS_MEMBER(imu_config_t, wifi.ap_mask,            "ap_mask",    NVS_TYPE_STR,  16),
+  NVS_MEMBER(imu_config_t, wifi.channel,            "wifi_ch",    NVS_TYPE_U8,   0),
 };
 
 //
@@ -33,41 +51,42 @@ static const imu_config_t   _default_cfg =
 {
   .magic    = IMU_CONFIG_MAGIC,
   .revision = IMU_CONFIG_REVISION,
+
+  // --- SENSOR DEFAULTS ---
   .sensor = 
   {
-    .accel_off =
-    {
-      0,
-      0,
-      0,
-    },
-    .accel_scale = 
-    {
-      4096,
-      4096,
-      4096,
-    },
-    .gyro_off = 
-    {
-      0,
-      0,
-      0,
-    },
-    .mag_bias = 
-    {
-      0,
-      0,
-      0,
-    },
-    .mag_scale = 
-    {
-      4096,
-      4096,
-      4096,
-    },
+    .accel_off   = { 0, 0, 0 },
+    .accel_scale = { 4096, 4096, 4096 },
+    .gyro_off    = { 0, 0, 0 },
+    .mag_bias    = { 0, 0, 0 },
+    .mag_scale   = { 4096, 4096, 4096 },
     .mag_declination = 0.0f,
   },
+
+  // --- IMU ENGINE DEFAULTS ---
+  .engine = 
+  {
+    .ahrs_mode     = IMU_AHRS_MODE_MADGWICK,
+    .madgwick_beta = 2.25f,
+    .mahony_kp     = 2.0f * 0.5f,
+    .mahony_ki     = 2.0f * 0.0f, 
+  },
+
+  // --- WIFI DEFAULTS ---
+  .wifi = 
+  {
+    .sta_enabled  = true,
+    .sta_ssid     = "apname",
+    .sta_password = "",
+
+    .ap_ssid      = "imu",
+    .ap_password  = "",
+    .ap_ip        = "192.168.4.1",
+    .ap_mask      = "255.255.255.0",
+    .channel      = 1,
+  }
 };
+
 
 //
 // live in memory config
@@ -172,6 +191,26 @@ imu_config_get_sensor_config(imu_sensor_calib_data_t* cfg)
   xSemaphoreTake(_nvs_lock, portMAX_DELAY);
 
   memcpy(cfg, &_live_cfg.sensor, sizeof(imu_sensor_calib_data_t));
+
+  xSemaphoreGive(_nvs_lock);
+}
+
+void
+imu_config_get_imu_engine_config(imu_engine_config_t* cfg)
+{
+  xSemaphoreTake(_nvs_lock, portMAX_DELAY);
+
+  memcpy(cfg, &_live_cfg.engine, sizeof(imu_engine_config_t));
+
+  xSemaphoreGive(_nvs_lock);
+}
+
+void
+imu_config_get_wifi_config(imu_wifi_config_t* cfg)
+{
+  xSemaphoreTake(_nvs_lock, portMAX_DELAY);
+
+  memcpy(cfg, &_live_cfg.wifi, sizeof(imu_wifi_config_t));
 
   xSemaphoreGive(_nvs_lock);
 }

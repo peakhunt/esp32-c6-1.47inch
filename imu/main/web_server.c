@@ -23,6 +23,7 @@
 #include "esp_vfs.h"
 #include "web_server.h"
 #include "imu_task.h"
+#include "imu_config.h"
 
 #define WEB_SERVER_HTTP_QUERY_KEY_MAX_LEN  (64)
 
@@ -386,42 +387,58 @@ settings_get_handler(httpd_req_t *req)
   float gyro_off[3];
   float mag_bias[3], mag_scale[3];
   float mag_dec;
-  char json_response[512];
+  imu_engine_config_t e;
+  imu_wifi_config_t w;
 
-  // Fetch the actual current calibration data
+  // Use a slightly larger buffer (1024) to safely fit all WiFi strings and floats
+  static char json[1024];
+
+  // Fetch all Hardware Truth
   imu_task_get_accel_calibration(acc_off, acc_scale);
   imu_task_get_gyro_calibration(gyro_off);
   imu_task_get_mag_calibration(mag_bias, mag_scale);
   imu_task_get_mag_dec(&mag_dec);
 
-  // Manually format the JSON string using the fetched floats
-  // Using .2f to keep the JSON string shorter and avoid buffer overflow
-  int len = snprintf(json_response, sizeof(json_response),
-      "{\"calibration\":{"
-      "\"accel_off\":[%.3f,%.3f,%.3f],"
-      "\"accel_scale\":[%.3f,%.3f,%.3f],"
-      "\"gyro_off\":[%.3f,%.3f,%.3f],"
-      "\"mag_bias\":[%.3f,%.3f,%.3f],"
-      "\"mag_scale\":[%.3f,%.3f,%.3f],"
-      "\"mag_declination\":%.4f"
-      "}}",
-      acc_off[0], acc_off[1], acc_off[2],
-      acc_scale[0], acc_scale[1], acc_scale[2],
-      gyro_off[0], gyro_off[1], gyro_off[2],
-      mag_bias[0], mag_bias[1], mag_bias[2],
-      mag_scale[0], mag_scale[1], mag_scale[2],
-      mag_dec
-      );
+  imu_config_get_imu_engine_config(&e);
+  imu_config_get_wifi_config(&w);
 
-  if (len < 0 || len >= sizeof(json_response))
+  int len = snprintf(json, sizeof(json),
+      "{"
+      "\"calibration\":{"
+      "\"accel_off\":[%.3f,%.3f,%.3f],\"accel_scale\":[%.3f,%.3f,%.3f],"
+      "\"gyro_off\":[%.3f,%.3f,%.3f],\"mag_bias\":[%.3f,%.3f,%.3f],"
+      "\"mag_scale\":[%.3f,%.3f,%.3f],\"mag_declination\":%.4f"
+      "},"
+      "\"imu\":{"
+      "\"ahrs_mode\":\"%s\",\"beta\":%.3f,\"twoKp\":%.3f,\"twoKi\":%.3f"
+      "},"
+      "\"wifi\":{"
+      "\"sta_enabled\":%s,\"sta_ssid\":\"%s\",\"sta_password\":\"%s\","
+      "\"ap_ssid\":\"%s\",\"ap_password\":\"%s\",\"ap_ip\":\"%s\","
+      "\"ap_mask\":\"%s\",\"channel\":%d"
+      "}"
+      "}",
+      // Calibration
+      acc_off[0], acc_off[1], acc_off[2], acc_scale[0], acc_scale[1], acc_scale[2],
+      gyro_off[0], gyro_off[1], gyro_off[2], mag_bias[0], mag_bias[1], mag_bias[2],
+      mag_scale[0], mag_scale[1], mag_scale[2], mag_dec,
+      // IMU Engine
+      (e.ahrs_mode == IMU_AHRS_MODE_MADGWICK) ? "Madgwick" : "Mahony",
+      e.madgwick_beta, e.mahony_kp, e.mahony_ki,
+      // WiFi
+      w.sta_enabled ? "true" : "false", w.sta_ssid, w.sta_password,
+      w.ap_ssid, w.ap_password, w.ap_ip, w.ap_mask, w.channel
+        );
+
+  if (len < 0 || len >= sizeof(json))
   {
-    ESP_LOGE(TAG, "JSON buffer too small or snprintf failed");
+    ESP_LOGE(TAG, "JSON buffer overflow! Required: %d", len);
     return httpd_resp_send_500(req);
   }
 
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-  return httpd_resp_send(req, json_response, len);
+  return httpd_resp_send(req, json, len);
 }
 
 static const httpd_uri_t settings_get_uri =
