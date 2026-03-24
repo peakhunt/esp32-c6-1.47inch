@@ -2,7 +2,7 @@
 
 An IMU (Inertial Measurement Unit) orientation tracking project built on the **ESP32-C6**, featuring sensor fusion, a local LCD interface (LVGL), and a web-based telemetry dashboard.
 
-![Hardware Overview](docs/board.jpg)
+<img src="docs/board.jpg" width="100" alt="Hardware Overview">
 
 ## 🚀 Features
 
@@ -35,7 +35,7 @@ An IMU (Inertial Measurement Unit) orientation tracking project built on the **E
 
 ### Prerequisites
 
-- ESP-IDF v5.1 or later.
+- ESP-IDF v5.5.2 or later.
 - Node.js & npm (for building the web frontend).
 
 ### Hardware Wiring
