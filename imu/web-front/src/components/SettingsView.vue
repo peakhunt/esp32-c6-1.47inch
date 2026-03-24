@@ -8,14 +8,14 @@
           <p class="heading has-text-weight-bold has-text-black mb-5">PERFORMANCE & THROTTLING</p>
           <div class="columns is-variable is-8">
             <div class="column is-6">
-              <div class="is-flex is-justify-content-between mb-2">
+              <div class="is-flex is-align-items-center mb-2" style="gap: 0.75rem;">
                 <span class="is-size-7 has-text-grey-light uppercase tracking-wide">Packet Drop</span>
                 <span class="is-family-monospace is-size-5 has-text-weight-bold has-text-link">{{ packetDrop }}ms</span>
               </div>
               <input class="slider is-fullwidth is-link m-0" type="range" min="0" max="500" step="10" v-model.number="packetDrop">
             </div>
             <div class="column is-6">
-              <div class="is-flex is-justify-content-between mb-2">
+              <div class="is-flex is-align-items-center mb-2" style="gap: 0.75rem;">
                 <span class="is-size-7 has-text-grey-light uppercase tracking-wide">Display Sync</span>
                 <span class="is-family-monospace is-size-5 has-text-weight-bold has-text-link">{{ displaySync }}ms</span>
               </div>
@@ -58,7 +58,7 @@
             <!-- DYNAMIC PARAMS -->
             <template v-if="localData.imu.ahrs_mode === 'Madgwick'">
               <div class="column is-12 py-1">
-                <div class="is-flex is-justify-content-between mb-1">
+                <div class="is-flex is-align-items-center mb-1" style="gap: 0.75rem;">
                   <span class="is-size-7 has-text-grey-light uppercase">Madgwick Beta</span>
                   <span class="is-family-monospace is-size-6 has-text-weight-bold has-text-link">
                     {{ localData.imu.beta?.toFixed(3) }}
