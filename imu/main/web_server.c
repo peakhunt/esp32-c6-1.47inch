@@ -398,7 +398,6 @@ settings_get_handler(httpd_req_t *req)
   float acc_off[3], acc_scale[3];
   float gyro_off[3];
   float mag_bias[3], mag_scale[3];
-  float mag_dec;
   imu_engine_config_t e;
   imu_wifi_config_t w;
 
@@ -409,7 +408,6 @@ settings_get_handler(httpd_req_t *req)
   imu_task_get_accel_calibration(acc_off, acc_scale);
   imu_task_get_gyro_calibration(gyro_off);
   imu_task_get_mag_calibration(mag_bias, mag_scale);
-  imu_task_get_mag_dec(&mag_dec);
 
   imu_config_get_imu_engine_config(&e);
   imu_config_get_wifi_config(&w);
@@ -419,10 +417,10 @@ settings_get_handler(httpd_req_t *req)
       "\"calibration\":{"
       "\"accel_off\":[%.3f,%.3f,%.3f],\"accel_scale\":[%.3f,%.3f,%.3f],"
       "\"gyro_off\":[%.3f,%.3f,%.3f],\"mag_bias\":[%.3f,%.3f,%.3f],"
-      "\"mag_scale\":[%.3f,%.3f,%.3f],\"mag_declination\":%.4f"
+      "\"mag_scale\":[%.3f,%.3f,%.3f]"
       "},"
       "\"imu\":{"
-      "\"ahrs_mode\":\"%s\",\"beta\":%.3f,\"twoKp\":%.3f,\"twoKi\":%.3f"
+      "\"ahrs_mode\":\"%s\",\"beta\":%.3f,\"twoKp\":%.3f,\"twoKi\":%.3f,\"mag_declination\":%.4f"
       "},"
       "\"wifi\":{"
       "\"sta_enabled\":%s,\"sta_ssid\":\"%s\",\"sta_password\":\"%s\","
@@ -433,10 +431,10 @@ settings_get_handler(httpd_req_t *req)
       // Calibration
       acc_off[0], acc_off[1], acc_off[2], acc_scale[0], acc_scale[1], acc_scale[2],
       gyro_off[0], gyro_off[1], gyro_off[2], mag_bias[0], mag_bias[1], mag_bias[2],
-      mag_scale[0], mag_scale[1], mag_scale[2], mag_dec,
+      mag_scale[0], mag_scale[1], mag_scale[2],
       // IMU Engine
       (e.ahrs_mode == IMU_AHRS_MODE_MADGWICK) ? "Madgwick" : "Mahony",
-      e.madgwick_beta, e.mahony_kp, e.mahony_ki,
+      e.madgwick_beta, e.mahony_kp, e.mahony_ki, e.mag_declination,
       // WiFi
       w.sta_enabled ? "true" : "false", w.sta_ssid, w.sta_password,
       w.ap_ssid, w.ap_password, w.ap_ip, w.ap_mask, w.channel
@@ -492,7 +490,6 @@ imu_settings_post_handler(httpd_req_t *req)
 
   // 3. Prepare the engine config struct
   imu_engine_config_t engine_cfg;
-  float mag_dec = 0.0f;
 
   // 4. SURGICAL PARSE (Matching Vue keys)
   for (int i = 1; i < r; i++)
@@ -520,12 +517,12 @@ imu_settings_post_handler(httpd_req_t *req)
     }
     else if (jsoneq(buf, &t[i], "mag_declination") == 0)
     {
-      mag_dec = strtof(buf + t[i+1].start, NULL);
+      engine_cfg.mag_declination = strtof(buf + t[i+1].start, NULL);
       i++;
     }
   }
 
-  imu_task_config_ahrs(&engine_cfg, mag_dec);
+  imu_task_config_ahrs(&engine_cfg);
 
   httpd_resp_set_type(req, "application/json");
   httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");

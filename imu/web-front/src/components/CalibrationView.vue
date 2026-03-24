@@ -177,7 +177,7 @@
           <div class="column is-6-mobile is-4-tablet py-1">
             <p class="is-size-7 has-text-grey-light">DECLINATION</p>
             <div class="is-family-monospace is-size-6 has-text-weight-bold has-text-success">
-              {{ imuStore.state.settings.calibration.mag_declination.toFixed(3) }}°
+              {{ imuStore.state.settings.imu.mag_declination.toFixed(3) }}°
             </div>
           </div>
         </div>

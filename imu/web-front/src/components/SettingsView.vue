@@ -49,7 +49,7 @@
             </div>
             <div class="column is-6 py-1">
               <label class="label is-size-7 has-text-grey-light uppercase">Declination (°)</label>
-              <input class="input is-small is-family-monospace" type="number" step="0.001" v-model.number="localData.mag_declination">
+              <input class="input is-small is-family-monospace" type="number" step="0.001" v-model.number="localData.imu.mag_declination">
             </div>
 
             <!-- DYNAMIC PARAMS -->
@@ -211,14 +211,12 @@ const displaySync = computed({
 const localData = ref({
   wifi: {},
   imu: {},
-  mag_declination: 0
 })
 
 const syncFromStore = () => {
   localData.value = JSON.parse(JSON.stringify({
     wifi: state.settings.wifi,
     imu: state.settings.imu,
-    mag_declination: state.settings.calibration.mag_declination
   }))
 }
 
@@ -237,7 +235,7 @@ const updateEngineOnly = async () => {
     beta: localData.value.imu.beta,
     twoKp: localData.value.imu.twoKp,
     twoKi: localData.value.imu.twoKi,
-    mag_declination: localData.value.mag_declination // Included here
+    mag_declination: localData.value.imu.mag_declination // Included here
   }
 
   try {
@@ -257,14 +255,9 @@ const updateEngineOnly = async () => {
         ahrs_mode: confirmed.ahrs_mode,
         beta: confirmed.beta,
         twoKp: confirmed.twoKp,
-        twoKi: confirmed.twoKi
-      })
-
-      // Update Calibration block specifically for declination
-      imuStore.updateCalibration({ 
+        twoKi: confirmed.twoKi,
         mag_declination: confirmed.mag_declination 
       })
-      
       alert("IMU Engine & Declination Updated")
     }
   } catch (e) {

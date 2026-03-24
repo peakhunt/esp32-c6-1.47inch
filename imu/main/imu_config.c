@@ -25,13 +25,13 @@ static nvs_helper_schema_def_t    _schema[] =
   NVS_MEMBER(imu_config_t, sensor.gyro_off,         "gyro_off",   NVS_TYPE_BLOB, 6),
   NVS_MEMBER(imu_config_t, sensor.mag_bias,         "mag_bias",   NVS_TYPE_BLOB, 6),
   NVS_MEMBER(imu_config_t, sensor.mag_scale,        "mag_scale",  NVS_TYPE_BLOB, 6),
-  NVS_MEMBER(imu_config_t, sensor.mag_declination,  "mag_dec",    NVS_TYPE_BLOB, 4),
 
   // --- IMU ENGINE ---
   NVS_MEMBER(imu_config_t, engine.ahrs_mode,        "imu_mode",   NVS_TYPE_U8,   0),
   NVS_MEMBER(imu_config_t, engine.madgwick_beta,    "imu_beta",   NVS_TYPE_BLOB, 4),
   NVS_MEMBER(imu_config_t, engine.mahony_kp,        "imu_kp",     NVS_TYPE_BLOB, 4),
   NVS_MEMBER(imu_config_t, engine.mahony_ki,        "imu_ki",     NVS_TYPE_BLOB, 4),
+  NVS_MEMBER(imu_config_t, engine.mag_declination,  "mag_dec",    NVS_TYPE_BLOB, 4),
 
   // --- WIFI CONFIG ---
   NVS_MEMBER(imu_config_t, wifi.sta_enabled,        "sta_en",     NVS_TYPE_U8,   0),
@@ -60,7 +60,6 @@ static const imu_config_t   _default_cfg =
     .gyro_off    = { 0, 0, 0 },
     .mag_bias    = { 0, 0, 0 },
     .mag_scale   = { 4096, 4096, 4096 },
-    .mag_declination = 0.0f,
   },
 
   // --- IMU ENGINE DEFAULTS ---
@@ -70,6 +69,7 @@ static const imu_config_t   _default_cfg =
     .madgwick_beta = 2.25f,
     .mahony_kp     = 2.0f * 0.5f,
     .mahony_ki     = 2.0f * 0.0f, 
+    .mag_declination = 0.0f,
   },
 
   // --- WIFI DEFAULTS ---
@@ -186,12 +186,11 @@ imu_config_update_mag_calib(int16_t bias[3], int16_t scale[3])
 }
 
 void
-imu_config_update_ahrs(imu_engine_config_t* cfg, float mag_dec)
+imu_config_update_ahrs(imu_engine_config_t* cfg)
 {
   xSemaphoreTake(_nvs_lock, portMAX_DELAY);
 
   memcpy(&_live_cfg.engine, cfg, sizeof(imu_engine_config_t));
-  _live_cfg.sensor.mag_declination = mag_dec;
 
   imu_conifg_write_all();
 

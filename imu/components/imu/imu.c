@@ -187,7 +187,7 @@ imu_update_normal(imu_t* imu)
 
     madgwick_get_roll_pitch_yaw(&imu->filter_madgwick,
         imu->data.orientation,
-        imu->cal.mag_declination);
+        imu->engine_cfg.mag_declination);
   }
   else
   {
@@ -198,7 +198,7 @@ imu_update_normal(imu_t* imu)
 
     mahony_get_roll_pitch_yaw(&imu->filter_mahony,
         imu->data.orientation,
-        imu->cal.mag_declination);
+        imu->engine_cfg.mag_declination);
   }
 }
 

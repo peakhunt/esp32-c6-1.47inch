@@ -159,7 +159,7 @@ imu_task_init_all(void)
   ESP_LOGI(TAG, "gyro_off %d, %d, %d", _imu.cal.gyro_off[0], _imu.cal.gyro_off[1], _imu.cal.gyro_off[2]);
   ESP_LOGI(TAG, "mag_bias %d, %d, %d", _imu.cal.mag_bias[0], _imu.cal.mag_bias[1], _imu.cal.mag_bias[2]);
   ESP_LOGI(TAG, "mag_scale %d, %d, %d", _imu.cal.mag_scale[0], _imu.cal.mag_scale[1], _imu.cal.mag_scale[2]);
-  ESP_LOGI(TAG, "mag_declination %f", _imu.cal.mag_declination);
+  ESP_LOGI(TAG, "mag_declination %f", _imu.engine_cfg.mag_declination);
 
   xSemaphoreGive(_mutex);
 }
@@ -331,24 +331,13 @@ imu_task_get_accel_calibration(float offset[3], float scale[3])
 }
 
 void
-imu_task_get_mag_dec(float* dec)
+imu_task_config_ahrs(imu_engine_config_t* cfg)
 {
   xSemaphoreTake(_mutex, portMAX_DELAY);
   
-  *dec = _imu.cal.mag_declination;
-  
-  xSemaphoreGive(_mutex);
-}
-
-void
-imu_task_config_ahrs(imu_engine_config_t* cfg, float mag_dec)
-{
-  xSemaphoreTake(_mutex, portMAX_DELAY);
-  
-  _imu.cal.mag_declination = mag_dec;
   imu_config_engine(&_imu, cfg);
 
-  imu_config_update_ahrs(cfg, mag_dec);
+  imu_config_update_ahrs(cfg);
   
   xSemaphoreGive(_mutex);
 }

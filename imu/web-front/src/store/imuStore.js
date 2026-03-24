@@ -25,9 +25,15 @@ const state = reactive({
     calibration: {
       accel_off: [0,0,0], accel_scale: [1,1,1],
       gyro_off: [0,0,0], mag_bias: [0,0,0],
-      mag_scale: [1,1,1], mag_declination: 0.0
+      mag_scale: [1,1,1]
     },
-    imu: { ahrs_mode: 'Mahony', beta: 0.1, twoKp: 2.0, twoKi: 0.005 },
+    imu: {
+      ahrs_mode: 'Madgwick',
+      beta: 0.1,
+      twoKp: 2.0,
+      twoKi: 0.005,
+      mag_declination: 0.0
+    },
     wifi: {
       sta_enabled: true, sta_ssid: 'apid', sta_password: '',
       ap_ssid: 'imu', ap_password: '1234',

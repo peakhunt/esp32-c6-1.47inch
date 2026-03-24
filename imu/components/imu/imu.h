@@ -23,6 +23,7 @@ typedef struct
   float           madgwick_beta;
   float           mahony_kp;
   float           mahony_ki;
+  float           mag_declination;
 } imu_engine_config_t;
 
 typedef enum
@@ -56,7 +57,6 @@ typedef struct
 #if IMU_USE_MAG_CALIB_SOFT_IRON == 1
   int16_t   mag_scale[3];
 #endif
-  float     mag_declination;
 } imu_sensor_calib_data_t;
 
 typedef struct
