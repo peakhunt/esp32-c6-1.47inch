@@ -435,6 +435,9 @@ my_lvgl_app_user_btn_pressed(void)
 void
 my_lvgl_app_user_btn_long_pressed(void)
 {
+  //
+  // guess lvgl task constantly accesses SPI for LCD
+  lvgl_port_lock(0);
   if(_screen_off)
   {
     _screen_off = false;
@@ -447,6 +450,7 @@ my_lvgl_app_user_btn_long_pressed(void)
     st7789_disp_on_off(false);
     st7789_backlight_on_off(false);
   }
+  lvgl_port_unlock();
 }
 
 void
