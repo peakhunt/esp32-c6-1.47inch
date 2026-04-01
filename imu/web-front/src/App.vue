@@ -241,6 +241,13 @@ onMounted(async () => {
         z: radius * Math.cos(theta)
       }
 
+      updateSystemStats(
+        Number((Math.random() * 100).toFixed(1)),
+        Math.trunc(Math.random() * 500),
+        Math.trunc(Math.random() * 40000),
+        0,
+      )
+
       handleIncomingData(r, p, y, g, a, m)
     }, 20)
   } else {
